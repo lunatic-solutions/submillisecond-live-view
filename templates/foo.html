@@ -18,7 +18,16 @@
     >
       <div>Hi {{ name }}. My age is {{ age }}</div>
       <p>{{ "This is static" }}</p>
-      <button phx-click="inc_temperature">+</button>
+      <p>The current count is {{ count }}.</p>
+      <button
+        phx-click="increment"
+        phx-value-myvar1="val1"
+        phx-value-myvar2="val2"
+        phx-value-myvar3="2"
+        phx-value-myvar4="true"
+      >
+        +
+      </button>
     </div>
   </body>
 </html>

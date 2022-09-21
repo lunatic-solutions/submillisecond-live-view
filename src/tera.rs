@@ -1,17 +1,10 @@
-use std::{
-    cell::{Cell, RefCell},
-    collections::{BTreeMap, HashMap},
-    marker::PhantomData,
-    path::Path,
-};
+use std::{collections::HashMap, marker::PhantomData, path::PathBuf};
 
-use lunatic::process_local;
-use lunatic_log::{info, warn};
-use once_cell::sync::OnceCell;
-use rand::prelude::*;
+use lunatic::{abstract_process, function::FuncRef, process::ProcessRef, Process};
+use lunatic_log::{error, info, warn};
 use serde::{
     de::Visitor,
-    ser::{SerializeMap, SerializeStruct, SerializeTuple},
+    ser::{SerializeMap, SerializeStruct},
     Deserialize, Serialize,
 };
 use serde_json::{json, Map, Value};
@@ -27,51 +20,86 @@ use tera::{ast::Node, Context, Error as TeraError, Tera};
 use crate::{
     csrf::CsrfToken,
     socket::{ProtocolEvent, Socket, SocketError, SocketMessage},
-    LiveView,
+    EventList, LiveView, LiveViewHandler,
 };
 
 pub struct LiveViewTera<T> {
     tera: Tera,
     data: PhantomData<T>,
     last_value: Option<Value>,
-    not_found_handler: fn() -> Response,
+    not_found_handler: FuncRef<fn() -> Response>,
 }
 
+#[abstract_process]
 impl<T> LiveViewTera<T>
 where
-    T: LiveView,
+    T: LiveView + Serialize + for<'de> Deserialize<'de>,
 {
-    pub fn new(path: &str, not_found_handler: fn() -> Response) -> Result<Self, TeraError> {
+    #[init]
+    fn init(
+        _: ProcessRef<Self>,
+        (path, not_found_handler): (PathBuf, FuncRef<fn() -> Response>),
+    ) -> Self {
         let mut tera = Tera::default();
         tera.register_function("csrf_token", csrf_token);
 
-        let name = Path::new(path)
+        let name = path
             .file_stem()
             .and_then(|s| s.to_str())
             .expect("could not extract file name from template");
-        tera.add_template_file(path, Some(name))?;
+        tera.add_template_file(&path, Some(name))
+            .expect("unable to add template file");
 
-        Ok(LiveViewTera {
+        println!("Here we are");
+
+        LiveViewTera {
             tera,
             data: PhantomData::default(),
             last_value: None,
             not_found_handler,
-        })
+        }
     }
 
-    fn render_dynamic(&self, name: &str, values: Value) -> Result<Rendered, TeraError> {
+    #[terminate]
+    fn terminate(self) {
+        println!("Shutdown process");
+    }
+
+    #[handle_request]
+    fn render_static(&self, value: T) -> Result<String, String> {
+        let context = Context::from_serialize(value).map_err(|err| err.to_string())?;
+        let name = self
+            .tera
+            .templates
+            .keys()
+            .next()
+            .expect("template does not exist");
+        self.tera
+            .render(&name, &context)
+            .map_err(|err| err.to_string())
+    }
+
+    #[handle_request]
+    fn render_dynamic(&self, value: T) -> Result<Rendered, String> {
+        let name = self
+            .tera
+            .templates
+            .keys()
+            .next()
+            .expect("template does not exist");
         let template = self.tera.templates.get(name).unwrap();
-        let mut template_clone = template.clone();
-        let template_sections = template.ast.split_inclusive(|node| !node_is_static(node));
-        let mut statics = Vec::new();
-        let mut dynamics = Vec::new();
-        let context = Context::from_value(values)?;
+        let context = Context::from_serialize(value).map_err(|err| err.to_string())?;
         let renderer = tera::renderer::Renderer::new(&template, &self.tera, &context);
         let mut processor = renderer.processor();
+
+        let mut statics = Vec::new();
+        let mut dynamics = Vec::new();
         let mut buffer = Vec::with_capacity(512);
         for (i, node) in template.ast.iter().enumerate() {
             let start_index = buffer.len();
-            let user_defined = processor.render_node(node, &mut buffer)?;
+            let user_defined = processor
+                .render_node(node, &mut buffer)
+                .map_err(|err| err.to_string())?;
             if user_defined {
                 let dynamic =
                     String::from_utf8(buffer.split_off(start_index)).map_err(|error| {
@@ -79,6 +107,7 @@ where
                             error,
                             "converting node buffer to string".to_string(),
                         )
+                        .to_string()
                     })?;
                 let buf = std::mem::take(&mut buffer);
                 let s = String::from_utf8(buf).map_err(|error| {
@@ -86,6 +115,7 @@ where
                         error,
                         "converting node buffer to string".to_string(),
                     )
+                    .to_string()
                 })?;
                 statics.push(s);
                 dynamics.push(dynamic);
@@ -95,99 +125,23 @@ where
                         error,
                         "converting node buffer to string".to_string(),
                     )
+                    .to_string()
                 })?;
                 statics.push(s);
             }
         }
 
-        // dbg!(&template.ast);
-        // for nodes in template_sections {
-        //     let last_node_is_static = nodes.last().map(node_is_static).unwrap_or(false);
-        //     let (dynamic, nodes) = if last_node_is_static {
-        //         (None, nodes)
-        //     } else {
-        //         match nodes.split_last() {
-        //             Some((dynamic, nodes)) => (Some(dynamic), nodes),
-        //             None => (None, &[] as &[Node]),
-        //         }
-        //     };
-
-        //     // dbg!(last_node_is_static);
-        //     // let (dynamic, nodes) = if nodes.len() > 1 {
-        //     //     match nodes.split_last() {
-        //     //         Some((dynamic, nodes)) => (Some(dynamic), nodes),
-        //     //         None => (None, &[] as &[Node]),
-        //     //     }
-        //     // } else {
-        //     //     (nodes.get(0), &[] as &[Node])
-        //     // };
-
-        //     template_clone.ast = nodes.to_vec();
-        //     let renderer = tera::renderer::Renderer::new(&template_clone, &self.tera, &context);
-        //     statics.push(renderer.render()?);
-
-        //     if let Some(dynamic) = dynamic {
-        //         let mut buffer = Vec::new();
-        //         renderer.processor().render_node(dynamic, &mut buffer)?;
-        //         let value = String::from_utf8(buffer).map_err(|error| {
-        //             TeraError::utf8_conversion_error(
-        //                 error,
-        //                 "converting node buffer to string".to_string(),
-        //             )
-        //         })?;
-        //         dynamics.push(value);
-        //     }
-        // }
-
-        // dbg!(&dynamics);
-        // dbg!(&statics);
-        // let renderer = tera::renderer::Renderer::new(
-        //     &template_clone,
-        //     &self.tera,
-        //     &Context::from_value(values)?,
-        // );
-        // let pp: Vec<_> = template
-        //     .ast
-        //     .split(|node| matches!(node, tera::ast::Node::VariableBlock(_, _)))
-        //     .collect();
-
-        // let mut placeholder_values = values.clone();
-        // let dynamics = match placeholder_values {
-        //     Value::Object(ref mut map) => map.values_mut().fold(Vec::new(), |mut acc, item| {
-        //         acc.push(item.to_string());
-        //         *item = Value::String((0x0 as char).to_string());
-        //         acc
-        //     }),
-        //     _ => {
-        //         return Err(tera::Error::msg(
-        //             "Creating a Context from a Value/Serialize requires it being a JSON object",
-        //         ))
-        //     }
-        // };
-        // let rendered = self
-        //     .tera
-        //     .render(name, &Context::from_value(placeholder_values)?)?;
-        // let statics = rendered
-        //     .split(0x0 as char)
-        //     .into_iter()
-        //     .map(|s| s.to_string())
-        //     .collect();
-
         Ok(Rendered { dynamics, statics })
-    }
-
-    fn render_static(&self, name: &str, context: &Context) -> Result<String, TeraError> {
-        self.tera.render(name, context)
     }
 }
 
-impl<T> Handler for LiveViewTera<T>
+impl<T> LiveViewHandler for ProcessRef<LiveViewTera<T>>
 where
-    T: LiveView,
+    T: Clone + LiveView + Serialize + for<'de> Deserialize<'de>,
 {
     fn handle(&self, req: RequestContext) -> Response {
         if *req.method() != ::submillisecond::http::Method::GET {
-            return (self.not_found_handler)();
+            return T::not_found(req);
         }
 
         let is_websocket = req
@@ -205,42 +159,82 @@ where
                 Err(err) => return err.into_response(),
             };
 
-            let name = self
-                .tera
-                .get_template_names()
-                .next()
-                .expect("at least one template should have been loaded");
-            let rendered = self
-                .render_dynamic(
-                    name,
-                    json!({
-                        "name": "Ari",
-                        "age": 22,
-                    }),
-                )
-                .unwrap();
-            dbg!(&rendered);
-
-            ws.on_upgrade(rendered, |conn, rendered| {
+            ws.on_upgrade(self.clone(), |conn, live_view| {
+                let mut state: Option<(T, HashMap<usize, String>)> = None;
                 let mut socket = Socket::new(conn);
                 loop {
                     match socket.receive() {
-                        Ok(SocketMessage::Event(mut event)) => {
-                            info!("Received event: {event:?}");
-                            match event.event {
+                        Ok(SocketMessage::Event(mut message)) => {
+                            info!("Received message: {message:?}");
+                            match message.event {
                                 ProtocolEvent::Close => {
                                     info!("Client left");
                                     break;
                                 }
                                 ProtocolEvent::Error => {}
-                                ProtocolEvent::Event => {
-                                    // event.p
-                                }
+                                ProtocolEvent::Event => match message.as_event() {
+                                    Ok(event) => match state.as_mut() {
+                                        Some((state, prev_dynamics)) => {
+                                            match <T::Events as EventList<T>>::handle_event(
+                                                state, event,
+                                            ) {
+                                                Ok(handled) => {
+                                                    if !handled {
+                                                        warn!("received unknown event");
+                                                        continue;
+                                                    }
+                                                }
+                                                Err(err) => {
+                                                    warn!("failed to deserialize event: {err}");
+                                                    continue;
+                                                }
+                                            }
+
+                                            let new_dynamics: HashMap<usize, String> = live_view
+                                                .render_dynamic(state.clone())
+                                                .expect("failed to render template")
+                                                .dynamics
+                                                .into_iter()
+                                                .enumerate()
+                                                .collect();
+
+                                            let result: HashMap<&usize, &String> = new_dynamics
+                                                .iter()
+                                                .filter(|(i, value)| match prev_dynamics.get(i) {
+                                                    Some(prev_value) => prev_value != *value,
+                                                    None => true,
+                                                })
+                                                .collect();
+
+                                            socket
+                                                .send(message.reply_ok(json!({ "diff": result })))
+                                                .unwrap();
+
+                                            *prev_dynamics = new_dynamics;
+                                        }
+                                        None => {
+                                            warn!("event received before mount");
+                                            continue;
+                                        }
+                                    },
+                                    Err(err) => {
+                                        error!("{err}");
+                                        continue;
+                                    }
+                                },
                                 ProtocolEvent::Heartbeat => {
-                                    socket.send(event.reply_ok(Map::default())).unwrap();
+                                    socket.send(message.reply_ok(Map::default())).unwrap();
                                 }
                                 ProtocolEvent::Join => {
-                                    socket.send(event.reply_ok(rendered.clone())).unwrap();
+                                    let mount_state = T::mount(Some(&socket));
+                                    let rendered = live_view
+                                        .render_dynamic(mount_state.clone())
+                                        .expect("failed to render template");
+                                    state = Some((
+                                        mount_state,
+                                        rendered.dynamics.clone().into_iter().enumerate().collect(),
+                                    ));
+                                    socket.send(message.reply_ok(rendered)).unwrap();
                                 }
                                 ProtocolEvent::Leave => {
                                     info!("Client left");
@@ -266,33 +260,16 @@ where
             })
             .into_response()
         } else {
-            // Static GET request
-            // let name = req.reader.read_to_end();
             if !req.reader.is_dangling_slash() {
-                return (self.not_found_handler)();
+                return T::not_found(req);
             }
 
-            let name = self
-                .tera
-                .get_template_names()
-                .next()
-                .expect("at least one template should have been loaded");
-            match self.render_static(
-                name,
-                &Context::from_value(json!({
-                    "name": "Ari",
-                    "age": 22,
-                }))
-                .unwrap(),
-            ) {
+            match self.render_static(T::mount(None)) {
                 Ok(body) => Response::builder()
                     .header("Content-Type", "text/html; charset=UTF-8")
                     .body(body.into_bytes())
                     .unwrap(),
-                Err(err) => match err.kind {
-                    tera::ErrorKind::TemplateNotFound(_) => (self.not_found_handler)(),
-                    _ => (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()).into_response(),
-                },
+                Err(err) => (StatusCode::INTERNAL_SERVER_ERROR, err).into_response(),
             }
         }
     }

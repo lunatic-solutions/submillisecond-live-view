@@ -1,7 +1,11 @@
-use std::convert::{TryFrom, TryInto};
+use std::{
+    collections::HashMap,
+    convert::{TryFrom, TryInto},
+    ops::{Deref, DerefMut},
+};
 
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{Map, Value};
 use submillisecond::websocket::WebSocketConnection;
 use thiserror::Error;
 
@@ -20,7 +24,7 @@ impl Socket {
         message.try_into()
     }
 
-    pub fn send(&mut self, event: &Event) -> Result<(), SocketError> {
+    pub fn send(&mut self, event: &Message) -> Result<(), SocketError> {
         self.conn
             .write_message(tungstenite::Message::Text(serde_json::to_string(
                 &event.to_tuple(),
@@ -56,7 +60,7 @@ pub enum ProtocolEvent {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Event {
+pub struct Message {
     pub ref1: Option<String>,
     pub ref2: Option<String>,
     pub topic: String,
@@ -64,7 +68,7 @@ pub struct Event {
     pub payload: Value,
 }
 
-impl Event {
+impl Message {
     pub fn reply_ok<T>(&mut self, response: T) -> &mut Self
     where
         T: Serialize,
@@ -89,6 +93,10 @@ impl Event {
         })
         .unwrap();
         self
+    }
+
+    pub fn as_event(&self) -> Result<Event, serde_json::Error> {
+        serde_json::from_value(self.payload.clone())
     }
 
     fn to_tuple(
@@ -118,7 +126,7 @@ impl Event {
             Value,
         ),
     ) -> Self {
-        Event {
+        Message {
             ref1,
             ref2,
             topic,
@@ -127,6 +135,38 @@ impl Event {
         }
     }
 }
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Event {
+    #[serde(rename = "event")]
+    pub name: String,
+    #[serde(rename = "type")]
+    pub ty: String,
+    pub value: Value,
+}
+
+// #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+// pub struct EventValue(HashMap<String, String>);
+
+// impl EventValue {
+//     pub fn value(&self) -> Option<&String> {
+//         self.get("value")
+//     }
+// }
+
+// impl Deref for EventValue {
+//     type Target = HashMap<String, String>;
+
+//     fn deref(&self) -> &Self::Target {
+//         &self.0
+//     }
+// }
+
+// impl DerefMut for EventValue {
+//     fn deref_mut(&mut self) -> &mut Self::Target {
+//         &mut self.0
+//     }
+// }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Response<T> {
@@ -142,7 +182,7 @@ pub enum Status {
 }
 
 pub enum SocketMessage {
-    Event(Event),
+    Event(Message),
     Close,
     Ping(Vec<u8>),
     Pong(Vec<u8>),
@@ -155,11 +195,11 @@ impl TryFrom<tungstenite::Message> for SocketMessage {
         match message {
             tungstenite::Message::Text(text) => {
                 let items = serde_json::from_str(&text)?;
-                Ok(SocketMessage::Event(Event::from_tuple(items)))
+                Ok(SocketMessage::Event(Message::from_tuple(items)))
             }
             tungstenite::Message::Binary(bytes) => {
                 let items = serde_json::from_slice(&bytes)?;
-                Ok(SocketMessage::Event(Event::from_tuple(items)))
+                Ok(SocketMessage::Event(Message::from_tuple(items)))
             }
             tungstenite::Message::Ping(data) => Ok(SocketMessage::Ping(data)),
             tungstenite::Message::Pong(data) => Ok(SocketMessage::Pong(data)),
