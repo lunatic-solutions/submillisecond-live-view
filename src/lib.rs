@@ -4,7 +4,8 @@ pub mod tera;
 
 use serde::Deserialize;
 use socket::{Event, Socket};
-use submillisecond::{response::Response, RequestContext};
+use submillisecond::response::Response;
+use submillisecond::RequestContext;
 
 #[macro_export]
 macro_rules! live_view {

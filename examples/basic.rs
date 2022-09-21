@@ -1,7 +1,9 @@
 use lunatic::process::StartProcess;
 use serde::{Deserialize, Serialize};
 use submillisecond::{router, static_router, Application};
-use subview::{live_view, socket::Socket, tera::LiveViewTera, LiveView, LiveViewEvent};
+use subview::socket::Socket;
+use subview::tera::LiveViewTera;
+use subview::{live_view, LiveView, LiveViewEvent};
 
 fn main() -> std::io::Result<()> {
     LiveViewTera::<Chat>::start_link(

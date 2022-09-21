@@ -1,27 +1,24 @@
-use std::{collections::HashMap, marker::PhantomData, path::PathBuf};
+use std::collections::HashMap;
+use std::marker::PhantomData;
+use std::path::PathBuf;
 
-use lunatic::{abstract_process, process::ProcessRef};
+use lunatic::abstract_process;
+use lunatic::process::ProcessRef;
 use lunatic_log::{error, info, warn};
-use serde::{
-    de::Visitor,
-    ser::{SerializeMap, SerializeStruct},
-    Deserialize, Serialize,
-};
+use serde::de::Visitor;
+use serde::ser::{SerializeMap, SerializeStruct};
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
-use submillisecond::{
-    extract::FromOwnedRequest,
-    http::{header, StatusCode},
-    response::{IntoResponse, Response},
-    websocket::WebSocket,
-    RequestContext,
-};
+use submillisecond::extract::FromOwnedRequest;
+use submillisecond::http::{header, StatusCode};
+use submillisecond::response::{IntoResponse, Response};
+use submillisecond::websocket::WebSocket;
+use submillisecond::RequestContext;
 use tera::{Context, Error as TeraError, Tera};
 
-use crate::{
-    csrf::CsrfToken,
-    socket::{ProtocolEvent, Socket, SocketError, SocketMessage},
-    EventList, LiveView, LiveViewHandler,
-};
+use crate::csrf::CsrfToken;
+use crate::socket::{ProtocolEvent, Socket, SocketError, SocketMessage};
+use crate::{EventList, LiveView, LiveViewHandler};
 
 pub struct LiveViewTera<T> {
     tera: Tera,
