@@ -514,10 +514,26 @@ dependencies = [
 
 [[package]]
 name = "lunatic"
-version = "0.11.1"
+version = "0.10.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dbb5cb5f8c3597fb08fdacc13ee41f24effbc0a1988262d122b5f52ecbef74ed"
 dependencies = [
  "bincode",
- "lunatic-macros",
+ "lunatic-macros 0.10.1",
+ "lunatic-test",
+ "paste",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
+name = "lunatic"
+version = "0.11.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "946d5710624fc8007c58d16c31da9a5db80169e180b20a3901a2af4dd71884a7"
+dependencies = [
+ "bincode",
+ "lunatic-macros 0.11.4",
  "lunatic-test",
  "paste",
  "serde",
@@ -526,17 +542,33 @@ dependencies = [
 
 [[package]]
 name = "lunatic-log"
-version = "0.2.2"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0bd0e6b9668f7ca76a6babfb56cc868421187ea39ed9fb9db5d886316b145090"
 dependencies = [
  "ansi_term",
  "chrono",
- "lunatic",
+ "lunatic 0.10.6",
  "serde",
 ]
 
 [[package]]
 name = "lunatic-macros"
-version = "0.11.0"
+version = "0.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3582d2d733790f704f1a537f8f80d531c2d42d9717ef3c64e3acedb309115d51"
+dependencies = [
+ "convert_case",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "lunatic-macros"
+version = "0.11.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "32f9b31b098de4c99a9f85d30735367d05d5ce0f84cb796f6a5792b4bb8b3a09"
 dependencies = [
  "convert_case",
  "proc-macro2",
@@ -547,6 +579,8 @@ dependencies = [
 [[package]]
 name = "lunatic-test"
 version = "0.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d1ed5beab4ac9e9b0ba97b7139de06ca173bb21718141152c0133b46d4100665"
 dependencies = [
  "quote",
  "syn",
@@ -946,6 +980,7 @@ dependencies = [
 [[package]]
 name = "submillisecond"
 version = "0.2.0-alpha1"
+source = "git+https://github.com/lunatic-solutions/submillisecond?branch=websocket-captures#5bff9ea7e3f04466c4a577a649694af77c080e7b"
 dependencies = [
  "ansi_term",
  "base64ct",
@@ -953,7 +988,7 @@ dependencies = [
  "headers",
  "http",
  "httparse",
- "lunatic",
+ "lunatic 0.11.4",
  "lunatic-log",
  "mime",
  "paste",
@@ -969,6 +1004,7 @@ dependencies = [
 [[package]]
 name = "submillisecond_macros"
 version = "0.2.1"
+source = "git+https://github.com/lunatic-solutions/submillisecond?branch=websocket-captures#5bff9ea7e3f04466c4a577a649694af77c080e7b"
 dependencies = [
  "better-bae",
  "lazy_static",
@@ -991,7 +1027,7 @@ name = "subview"
 version = "0.1.0"
 dependencies = [
  "base64",
- "lunatic",
+ "lunatic 0.11.4",
  "lunatic-log",
  "once_cell",
  "rand",
