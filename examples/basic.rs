@@ -1,14 +1,11 @@
-use lunatic::{function::FuncRef, process::StartProcess};
+use lunatic::process::StartProcess;
 use serde::{Deserialize, Serialize};
 use submillisecond::{router, static_router, Application};
 use subview::{live_view, socket::Socket, tera::LiveViewTera, LiveView, LiveViewEvent};
 
 fn main() -> std::io::Result<()> {
     LiveViewTera::<Chat>::start_link(
-        (
-            "templates/foo.html".into(),
-            FuncRef::new(submillisecond::defaults::err_404),
-        ),
+        "templates/foo.html".into(),
         Some(stringify!(Chat "templates/foo.html")),
     );
 

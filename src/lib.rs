@@ -2,37 +2,13 @@ pub mod csrf;
 pub mod socket;
 pub mod tera;
 
-use std::{
-    collections::{BTreeMap, HashMap},
-    marker::PhantomData,
-    path::Path,
-};
-
-use lunatic_log::{info, warn};
-use serde::{Deserialize, Serialize};
-use serde_json::{Map, Number, Value};
-use socket::{Event, Socket, SocketError, SocketMessage};
-use submillisecond::{
-    extract::FromOwnedRequest,
-    http::{header::UPGRADE, StatusCode},
-    response::{IntoResponse, Response},
-    websocket::WebSocket,
-    Handler, RequestContext,
-};
+use serde::Deserialize;
+use socket::{Event, Socket};
+use submillisecond::{response::Response, RequestContext};
 
 #[macro_export]
 macro_rules! live_view {
     ($t: path, $path: expr) => {
-        // (|mut req: submillisecond::RequestContext| -> submillisecond::response::Response {
-        //     lunatic::process_local! {
-        //         pub static LIVE_VIEW: std::cell::RefCell<$crate::tera::LiveViewTera<$t>> = std::cell::RefCell::new(
-        //             $crate::tera::LiveViewTera::new($path, submillisecond::defaults::err_404).expect("live view templates failed to compile"),
-        //         );
-        //     }
-
-        //     LIVE_VIEW.with_borrow(|live_view| ::submillisecond::Handler::handle(&*live_view, req))
-        // }) as submillisecond::Router
-
         (|req: submillisecond::RequestContext| -> submillisecond::response::Response {
             match lunatic::process::ProcessRef::<$crate::tera::LiveViewTera<$t>>::lookup(
                 stringify!($t $path),
@@ -46,12 +22,6 @@ macro_rules! live_view {
     };
 }
 
-// pub trait LiveViewHandler {
-//     type Handler: Handler;
-
-//     fn live_view_handler(template: &str) -> Self::Handler;
-// }
-
 pub trait LiveViewHandler {
     fn handle(&self, req: RequestContext) -> Response;
 }
@@ -61,7 +31,7 @@ pub trait LiveView: Sized {
 
     fn mount(socket: Option<&Socket>) -> Self;
 
-    fn not_found(req: RequestContext) -> Response {
+    fn not_found(_req: RequestContext) -> Response {
         submillisecond::defaults::err_404()
     }
 }
@@ -91,52 +61,3 @@ where
         Ok(false)
     }
 }
-
-pub struct LiveViewRender {
-    statics: Vec<String>,
-    dynamics: Vec<serde_json::Value>,
-}
-
-impl LiveViewRender {
-    pub fn new(statics: Vec<String>, dynamics: Vec<serde_json::Value>) -> Self {
-        debug_assert_eq!(
-            statics.len(),
-            dynamics.len() + 1,
-            "static items should be 1 longer than dynamic items"
-        );
-
-        LiveViewRender { statics, dynamics }
-    }
-}
-
-#[derive(Default)]
-pub struct Assigns {
-    assigns: BTreeMap<String, Cd<Value>>,
-}
-
-impl Assigns {
-    pub fn new() -> Self {
-        Assigns::default()
-    }
-
-    pub fn insert(&mut self, key: impl Into<String>, val: impl Into<Value>) {
-        self.assigns.insert(key.into(), Cd::new_true(val.into()));
-    }
-
-    pub fn reset_all(&mut self) {
-        for val in self.assigns.values_mut() {
-            val.reset();
-        }
-    }
-}
-
-// pub enum Value {
-//     Null,
-//     Bool(bool),
-//     Number(Number),
-//     String(String),
-//     // TODO: `Cd<Value>` change detection per item in array
-//     Array(Vec<Value>),
-//     // TODO: `Cd<Value>` change detection per item in map
-//     Object(Map<String, Value>),
-// }

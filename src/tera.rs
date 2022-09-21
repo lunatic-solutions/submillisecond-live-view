@@ -1,6 +1,6 @@
 use std::{collections::HashMap, marker::PhantomData, path::PathBuf};
 
-use lunatic::{abstract_process, function::FuncRef, process::ProcessRef, Process};
+use lunatic::{abstract_process, process::ProcessRef};
 use lunatic_log::{error, info, warn};
 use serde::{
     de::Visitor,
@@ -13,9 +13,9 @@ use submillisecond::{
     http::{header, StatusCode},
     response::{IntoResponse, Response},
     websocket::WebSocket,
-    Handler, RequestContext,
+    RequestContext,
 };
-use tera::{ast::Node, Context, Error as TeraError, Tera};
+use tera::{Context, Error as TeraError, Tera};
 
 use crate::{
     csrf::CsrfToken,
@@ -26,8 +26,6 @@ use crate::{
 pub struct LiveViewTera<T> {
     tera: Tera,
     data: PhantomData<T>,
-    last_value: Option<Value>,
-    not_found_handler: FuncRef<fn() -> Response>,
 }
 
 #[abstract_process]
@@ -36,10 +34,7 @@ where
     T: LiveView + Serialize + for<'de> Deserialize<'de>,
 {
     #[init]
-    fn init(
-        _: ProcessRef<Self>,
-        (path, not_found_handler): (PathBuf, FuncRef<fn() -> Response>),
-    ) -> Self {
+    fn init(_: ProcessRef<Self>, path: PathBuf) -> Self {
         let mut tera = Tera::default();
         tera.register_function("csrf_token", csrf_token);
 
@@ -55,8 +50,6 @@ where
         LiveViewTera {
             tera,
             data: PhantomData::default(),
-            last_value: None,
-            not_found_handler,
         }
     }
 
@@ -75,7 +68,7 @@ where
             .next()
             .expect("template does not exist");
         self.tera
-            .render(&name, &context)
+            .render(name, &context)
             .map_err(|err| err.to_string())
     }
 
@@ -89,7 +82,7 @@ where
             .expect("template does not exist");
         let template = self.tera.templates.get(name).unwrap();
         let context = Context::from_serialize(value).map_err(|err| err.to_string())?;
-        let renderer = tera::renderer::Renderer::new(&template, &self.tera, &context);
+        let renderer = tera::renderer::Renderer::new(template, &self.tera, &context);
         let mut processor = renderer.processor();
 
         let mut statics = Vec::new();
@@ -374,8 +367,4 @@ impl<'de> Deserialize<'de> for Rendered {
         let rendered_outer = RenderedWrapper::deserialize(deserializer)?;
         Ok(rendered_outer.rendered.rendered)
     }
-}
-
-fn node_is_static(node: &Node) -> bool {
-    matches!(node, Node::Text(_) | Node::Raw(_, _, _))
 }

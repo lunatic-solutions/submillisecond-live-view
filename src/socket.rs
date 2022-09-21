@@ -1,11 +1,7 @@
-use std::{
-    collections::HashMap,
-    convert::{TryFrom, TryInto},
-    ops::{Deref, DerefMut},
-};
+use std::convert::{TryFrom, TryInto};
 
 use serde::{Deserialize, Serialize};
-use serde_json::{Map, Value};
+use serde_json::Value;
 use submillisecond::websocket::WebSocketConnection;
 use thiserror::Error;
 
@@ -144,29 +140,6 @@ pub struct Event {
     pub ty: String,
     pub value: Value,
 }
-
-// #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-// pub struct EventValue(HashMap<String, String>);
-
-// impl EventValue {
-//     pub fn value(&self) -> Option<&String> {
-//         self.get("value")
-//     }
-// }
-
-// impl Deref for EventValue {
-//     type Target = HashMap<String, String>;
-
-//     fn deref(&self) -> &Self::Target {
-//         &self.0
-//     }
-// }
-
-// impl DerefMut for EventValue {
-//     fn deref_mut(&mut self) -> &mut Self::Target {
-//         &mut self.0
-//     }
-// }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Response<T> {
