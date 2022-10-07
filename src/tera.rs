@@ -383,14 +383,14 @@ impl RenderVisitor for Rendered {
 
 #[cfg(test)]
 mod template_tests {
-    use serde_json::json;
+    use serde_json::{json, Value};
     use tera::{Context, Tera};
 
     use super::json::RenderedJson;
     use super::Rendered;
     use crate::tera::json::DynamicRenderJson;
 
-    fn render_template(content: &str, context: serde_json::Value) -> RenderedJson {
+    fn render_template(content: &str, context: Value) -> RenderedJson {
         let mut tera = Tera::default();
         tera.autoescape_on(vec![]);
         tera.add_raw_template("test", content).unwrap();
@@ -504,5 +504,214 @@ mod template_tests {
 
         assert_eq!(render.statics, Some(vec!["".to_string(), "".to_string()]));
         assert_eq_dynamics!(render.dynamics, [DynamicRenderJson::String("".to_string())]);
+    }
+}
+
+#[cfg(test)]
+mod template_diff_tests {
+    use std::collections::HashMap;
+
+    use serde_json::{json, Value};
+    use tera::{Context, Tera};
+
+    use super::json::RenderedJson;
+    use super::Rendered;
+    use crate::tera::json::DynamicRenderJson;
+
+    fn render_template_diff(content: &str, context_a: Value, context_b: Value) -> RenderedJson {
+        let mut tera = Tera::default();
+        tera.autoescape_on(vec![]);
+        tera.add_raw_template("test", content).unwrap();
+        let mut render_a = Rendered::default();
+        tera.render_to(
+            "test",
+            &Context::from_value(context_a).unwrap(),
+            &mut render_a,
+        )
+        .unwrap();
+
+        let mut render_b = Rendered::default();
+        tera.render_to(
+            "test",
+            &Context::from_value(context_b).unwrap(),
+            &mut render_b,
+        )
+        .unwrap();
+
+        let a = RenderedJson::from(render_a);
+        let b = RenderedJson::from(render_b);
+
+        dbg!(&a);
+        dbg!(&b);
+
+        a.diff(&b)
+    }
+
+    macro_rules! assert_eq_dynamics {
+        ($dynamics: expr, $vec: expr) => {
+            assert_eq!($dynamics, $vec.into_iter().collect())
+        };
+    }
+
+    #[lunatic::test]
+    fn template_diff_with_variable() {
+        let diff = render_template_diff(
+            "Hello {{ name }}",
+            json!({
+                "name": "Bob",
+            }),
+            json!({
+                "name": "Jim",
+            }),
+        );
+
+        assert!(diff.statics.is_none());
+        assert_eq_dynamics!(
+            diff.dynamics,
+            [(0, DynamicRenderJson::String("Jim".to_string()))]
+        );
+    }
+
+    #[lunatic::test]
+    fn template_diff_with_multiple_variables() {
+        let diff = render_template_diff(
+            "Hello {{ name }}, you are {{ age }} years old",
+            json!({
+                "name": "Bob",
+                "age": 22,
+            }),
+            json!({
+                "name": "John",
+                "age": 32,
+            }),
+        );
+
+        dbg!(&diff);
+
+        assert!(diff.statics.is_none());
+        assert_eq_dynamics!(
+            diff.dynamics,
+            [
+                (0, DynamicRenderJson::String("John".to_string())),
+                (1, DynamicRenderJson::String("32".to_string()))
+            ]
+        );
+    }
+
+    #[lunatic::test]
+    fn template_diff_with_if_statement() {
+        let diff = render_template_diff(
+            "Welcome {% if user %}{{ user }}{% else %}stranger{% endif %}",
+            json!({
+                "user": "Bob",
+            }),
+            json!({
+                "user": Option::<&'static str>::None,
+            }),
+        );
+
+        assert!(diff.statics.is_none());
+        assert_eq_dynamics!(
+            diff.dynamics,
+            [(
+                0,
+                DynamicRenderJson::Nested(RenderedJson {
+                    statics: Some(vec!["stranger".to_string()]),
+                    dynamics: HashMap::default(),
+                })
+            )]
+        );
+
+        let diff = render_template_diff(
+            "Welcome {% if user %}{{ user }}{% else %}stranger{% endif %}",
+            json!({
+                "user": Option::<&'static str>::None,
+            }),
+            json!({
+                "user": "Bob",
+            }),
+        );
+
+        assert!(diff.statics.is_none());
+        assert_eq_dynamics!(
+            diff.dynamics,
+            [(
+                0,
+                DynamicRenderJson::Nested(RenderedJson {
+                    statics: Some(vec!["".to_string(), "".to_string()]),
+                    dynamics: HashMap::from_iter([(
+                        0,
+                        DynamicRenderJson::String("Bob".to_string())
+                    )]),
+                })
+            )]
+        );
+    }
+
+    #[lunatic::test]
+    fn template_diff_with_nested_if_statement() {
+        let diff = render_template_diff(
+            r#"
+                {%- if count >= 1 -%}
+                    <p>Count is high!</p>
+                    {%- if count >= 2 -%}
+                        <p>Count is very high!</p>
+                    {%- endif -%}
+                {%- endif -%}
+            "#,
+            json!({
+                "count": 0,
+            }),
+            json!({
+                "count": 1,
+            }),
+        );
+
+        assert!(diff.statics.is_none());
+        assert_eq_dynamics!(
+            diff.dynamics,
+            [(
+                0,
+                DynamicRenderJson::Nested(RenderedJson {
+                    statics: Some(vec!["<p>Count is high!</p>".to_string(), "".to_string()]),
+                    dynamics: HashMap::from_iter([(0, DynamicRenderJson::String("".to_string()))]),
+                })
+            )]
+        );
+
+        let diff = render_template_diff(
+            r#"
+                {%- if count >= 1 -%}
+                    <p>Count is high!</p>
+                    {%- if count >= 2 -%}
+                        <p>Count is very high!</p>
+                    {%- endif -%}
+                {%- endif -%}
+            "#,
+            json!({
+                "count": 1,
+            }),
+            json!({
+                "count": 2,
+            }),
+        );
+
+        assert!(diff.statics.is_none());
+        assert_eq_dynamics!(
+            diff.dynamics,
+            [(
+                0,
+                DynamicRenderJson::Nested(RenderedJson {
+                    statics: None,
+                    dynamics: HashMap::from_iter([(
+                        0,
+                        DynamicRenderJson::Nested(RenderedJson {
+                            statics: Some(vec!["<p>Count is very high!</p>".to_string()]),
+                            dynamics: HashMap::default()
+                        })
+                    )]),
+                })
+            )]
+        );
     }
 }
