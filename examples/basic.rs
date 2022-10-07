@@ -1,21 +1,11 @@
-use lunatic::process::StartProcess;
 use serde::{Deserialize, Serialize};
 use submillisecond::{router, static_router, Application};
 use subview::socket::Socket;
-use subview::tera::LiveViewTera;
-use subview::{live_view, LiveView, LiveViewEvent};
+use subview::{LiveView, LiveViewEvent, LiveViewRoute};
 
 fn main() -> std::io::Result<()> {
-    LiveViewTera::<Chat>::start_link(
-        (
-            "templates/layout.html".into(),
-            "templates/index.html".into(),
-        ),
-        Some(stringify!(Chat "templates/foo.html")),
-    );
-
     Application::new(router! {
-        "/" => live_view!(Chat, "templates/foo.html")
+        "/" => LiveViewRoute::<Chat>::new("templates/layout.html", "templates/index.html")
         "/static" => static_router!("./static")
     })
     .serve("127.0.0.1:3000")
