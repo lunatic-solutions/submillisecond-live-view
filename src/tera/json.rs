@@ -22,7 +22,13 @@ impl RenderedJson {
         let dynamics = self
             .dynamics
             .iter()
-            .zip_longest(other.dynamics.iter())
+            .sorted_by(|(a, _), (b, _)| Ord::cmp(a, b))
+            .zip_longest(
+                other
+                    .dynamics
+                    .iter()
+                    .sorted_by(|(a, _), (b, _)| Ord::cmp(a, b)),
+            )
             .filter_map(|zip| match zip {
                 EitherOrBoth::Both((i, dynamic_a), (_, dynamic_b)) => {
                     match (dynamic_a, dynamic_b) {
@@ -62,37 +68,6 @@ impl RenderedJson {
     }
 }
 
-// #[derive(Default)]
-// pub struct DynamicDiff {
-//     map: HashMap<usize, DynamicDiffValue>,
-// }
-
-// // impl From<RenderedJson> for DynamicDiff {
-// //     fn from(rendered: RenderedJson) -> Self {
-// //         rendered.dynamics
-// //     }
-// // }
-
-// enum DynamicDiffValue {
-//     String(String),
-//     Rendered(DynamicRenderedJson),
-//     Nested(Box<DynamicDiff>),
-// }
-
-// impl From<RenderedJson> for Rendered {
-//     fn from(rendered_json: RenderedJson) -> Self {
-//         Rendered {
-//             statics: rendered_json.statics.un,
-//             dynamics: rendered_json
-//                 .dynamics
-//                 .into_iter()
-//                 .map(|(_i, dynamic)| DynamicRender::from(dynamic))
-//                 .collect(),
-//             nested: false,
-//         }
-//     }
-// }
-
 impl From<Rendered> for RenderedJson {
     fn from(rendered: Rendered) -> Self {
         RenderedJson {
@@ -112,15 +87,6 @@ pub enum DynamicRenderJson {
     String(String),
     Nested(RenderedJson),
 }
-
-// impl From<DynamicRenderJson> for DynamicRender {
-//     fn from(dynamic_render_json: DynamicRenderJson) -> Self {
-//         match dynamic_render_json {
-//             DynamicRenderJson::String(s) => DynamicRender::String(s),
-//             DynamicRenderJson::Nested(rendered_json) =>
-// DynamicRender::Nested(rendered_json.into()),         }
-//     }
-// }
 
 impl From<DynamicRender> for DynamicRenderJson {
     fn from(dynamic_render: DynamicRender) -> Self {
