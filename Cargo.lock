@@ -229,7 +229,7 @@ dependencies = [
  "rand",
  "sha2",
  "subtle",
- "time 0.3.14",
+ "time 0.3.15",
  "version_check",
 ]
 
@@ -500,9 +500,9 @@ dependencies = [
 
 [[package]]
 name = "itoa"
-version = "1.0.3"
+version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6c8af84674fe1f223a982c933a0ee1086ac4d4052aa0fb8060c12c6ad838e754"
+checksum = "4217ad341ebadf8d8e724e264f13e593e0648f5b3e94b3896a5df283be015ecc"
 
 [[package]]
 name = "js-sys"
@@ -1060,9 +1060,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "1.0.101"
+version = "1.0.102"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e90cde112c4b9690b8cbe810cba9ddd8bc1d7472e2cae317b69e9438c1cba7d2"
+checksum = "3fcd952facd492f9be3ef0d0b7032a6e442ee9b361d4acc2b1d0c4aaa5f613a1"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1072,7 +1072,7 @@ dependencies = [
 [[package]]
 name = "tera"
 version = "1.17.1"
-source = "git+https://github.com/tqwewe/tera?branch=live-view#c8fd244aafd3b5dd839b3e610f65282aaf5943d8"
+source = "git+https://github.com/tqwewe/tera?branch=live-view#aef6491457b04d25ec3b59d3b6c852eb532f66bb"
 dependencies = [
  "chrono",
  "chrono-tz",
@@ -1132,9 +1132,9 @@ dependencies = [
 
 [[package]]
 name = "time"
-version = "0.3.14"
+version = "0.3.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c3f9a28b618c3a6b9251b6908e9c99e04b9e5c02e6581ccbb67d59c34ef7f9b"
+checksum = "d634a985c4d4238ec39cacaed2e7ae552fbd3c476b552c1deac3021b7d7eaf0c"
 dependencies = [
  "itoa",
  "libc",
