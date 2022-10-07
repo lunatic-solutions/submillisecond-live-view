@@ -23,8 +23,8 @@ fn main() -> std::io::Result<()> {
 
 #[derive(Clone, Serialize, Deserialize)]
 struct Chat {
-    // name: String,
-    // age: i32,
+    name: String,
+    age: i32,
     count: i32,
 }
 
@@ -33,8 +33,8 @@ impl LiveView for Chat {
 
     fn mount(_socket: Option<&Socket>) -> Self {
         Chat {
-            // name: "Ari".to_string(),
-            // age: 22,
+            name: "Ari".to_string(),
+            age: 22,
             count: 0,
         }
     }
@@ -48,6 +48,8 @@ impl LiveViewEvent<Increment> for Chat {
 
     fn handle(state: &mut Self, _event: Increment, _event_type: String) {
         state.count += 1;
+        state.name = "Jim".to_string();
+        state.age = 32;
         println!("Count = {}", state.count);
     }
 }

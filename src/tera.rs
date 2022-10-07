@@ -128,7 +128,6 @@ where
             .and_then(|upgrade| upgrade.to_str().ok())
             .map(|upgrade| upgrade == "websocket")
             .unwrap_or(false);
-        dbg!(is_websocket);
         if is_websocket {
             // Live websocket request
             // Verify session exists
@@ -541,9 +540,6 @@ mod template_diff_tests {
         let a = RenderedJson::from(render_a);
         let b = RenderedJson::from(render_b);
 
-        dbg!(&a);
-        dbg!(&b);
-
         a.diff(&b)
     }
 
@@ -585,8 +581,6 @@ mod template_diff_tests {
                 "age": 32,
             }),
         );
-
-        dbg!(&diff);
 
         assert!(diff.statics.is_none());
         assert_eq_dynamics!(
