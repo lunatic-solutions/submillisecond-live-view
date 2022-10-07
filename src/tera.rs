@@ -1,12 +1,14 @@
+mod json;
+
+use std::borrow::Cow;
 use std::collections::HashMap;
+use std::io;
 use std::marker::PhantomData;
 use std::path::PathBuf;
 
 use lunatic::abstract_process;
 use lunatic::process::ProcessRef;
 use lunatic_log::{error, info, warn};
-use serde::de::Visitor;
-use serde::ser::{SerializeMap, SerializeStruct};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 use submillisecond::extract::FromOwnedRequest;
@@ -14,10 +16,11 @@ use submillisecond::http::{header, StatusCode};
 use submillisecond::response::{IntoResponse, Response};
 use submillisecond::websocket::WebSocket;
 use submillisecond::RequestContext;
-use tera::{Context, Error as TeraError, Tera};
+use tera::{Context, RenderVisitor, Tera};
 
 use crate::csrf::CsrfToken;
 use crate::socket::{ProtocolEvent, Socket, SocketError, SocketMessage};
+use crate::tera::json::RenderedJson;
 use crate::{EventList, LiveView, LiveViewHandler};
 
 pub struct LiveViewTera<T> {
@@ -31,18 +34,19 @@ where
     T: LiveView + Serialize + for<'de> Deserialize<'de>,
 {
     #[init]
-    fn init(_: ProcessRef<Self>, path: PathBuf) -> Self {
+    fn init(_: ProcessRef<Self>, (layout, path): (PathBuf, PathBuf)) -> Self {
         let mut tera = Tera::default();
         tera.register_function("csrf_token", csrf_token);
+        tera.autoescape_on(vec![]);
 
         let name = path
             .file_stem()
             .and_then(|s| s.to_str())
             .expect("could not extract file name from template");
+        tera.add_template_file(layout, Some("__layout"))
+            .expect("unable to add layout file");
         tera.add_template_file(&path, Some(name))
             .expect("unable to add template file");
-
-        println!("Here we are");
 
         LiveViewTera {
             tera,
@@ -62,66 +66,50 @@ where
             .tera
             .templates
             .keys()
-            .next()
+            .find(|name| *name != "__layout")
             .expect("template does not exist");
-        self.tera
+        let content = self
+            .tera
             .render(name, &context)
+            .map_err(|err| err.to_string())?;
+
+        let mut context = Context::new();
+        context.insert(
+            "inner_content",
+            &format!(
+                r#"
+                <div
+                    data-phx-main="true"
+                    data-phx-session="session"
+                    data-phx-static="static"
+                    id="phx-FxSmBHsfHn_3LQAD"
+                    class="phx-connected"
+                    data-phx-root-id="phx-FxSmBHsfHn_3LQAD"
+                >
+                    {content}
+                </div>"#
+            ),
+        );
+        self.tera
+            .render("__layout", &context)
             .map_err(|err| err.to_string())
     }
 
     #[handle_request]
     fn render_dynamic(&self, value: T) -> Result<Rendered, String> {
+        let context = Context::from_serialize(value).map_err(|err| err.to_string())?;
         let name = self
             .tera
             .templates
             .keys()
-            .next()
+            .find(|name| *name != "__layout")
             .expect("template does not exist");
-        let template = self.tera.templates.get(name).unwrap();
-        let context = Context::from_serialize(value).map_err(|err| err.to_string())?;
-        let renderer = tera::renderer::Renderer::new(template, &self.tera, &context);
-        let mut processor = renderer.processor();
+        let mut rendered = Rendered::default();
+        self.tera
+            .render_to(name, &context, &mut rendered)
+            .map_err(|err| err.to_string())?;
 
-        let mut statics = Vec::new();
-        let mut dynamics = Vec::new();
-        let mut buffer = Vec::with_capacity(512);
-        for (i, node) in template.ast.iter().enumerate() {
-            let start_index = buffer.len();
-            let user_defined = processor
-                .render_node(node, &mut buffer)
-                .map_err(|err| err.to_string())?;
-            if user_defined {
-                let dynamic =
-                    String::from_utf8(buffer.split_off(start_index)).map_err(|error| {
-                        TeraError::utf8_conversion_error(
-                            error,
-                            "converting node buffer to string".to_string(),
-                        )
-                        .to_string()
-                    })?;
-                let buf = std::mem::take(&mut buffer);
-                let s = String::from_utf8(buf).map_err(|error| {
-                    TeraError::utf8_conversion_error(
-                        error,
-                        "converting node buffer to string".to_string(),
-                    )
-                    .to_string()
-                })?;
-                statics.push(s);
-                dynamics.push(dynamic);
-            } else if i == template.ast.len() - 1 {
-                let s = String::from_utf8(std::mem::take(&mut buffer)).map_err(|error| {
-                    TeraError::utf8_conversion_error(
-                        error,
-                        "converting node buffer to string".to_string(),
-                    )
-                    .to_string()
-                })?;
-                statics.push(s);
-            }
-        }
-
-        Ok(Rendered { dynamics, statics })
+        Ok(rendered)
     }
 }
 
@@ -150,7 +138,7 @@ where
             };
 
             ws.on_upgrade(self.clone(), |conn, live_view| {
-                let mut state: Option<(T, HashMap<usize, String>)> = None;
+                let mut state: Option<(T, RenderedJson)> = None;
                 let mut socket = Socket::new(conn);
                 loop {
                     match socket.receive() {
@@ -180,27 +168,18 @@ where
                                                 }
                                             }
 
-                                            let new_dynamics: HashMap<usize, String> = live_view
-                                                .render_dynamic(state.clone())
-                                                .expect("failed to render template")
-                                                .dynamics
-                                                .into_iter()
-                                                .enumerate()
-                                                .collect();
+                                            let rendered = RenderedJson::from(
+                                                live_view
+                                                    .render_dynamic(state.clone())
+                                                    .expect("failed to render template"),
+                                            );
 
-                                            let result: HashMap<&usize, &String> = new_dynamics
-                                                .iter()
-                                                .filter(|(i, value)| match prev_dynamics.get(i) {
-                                                    Some(prev_value) => prev_value != *value,
-                                                    None => true,
-                                                })
-                                                .collect();
+                                            let diff = prev_dynamics.diff(&rendered);
+                                            *prev_dynamics = rendered;
 
                                             socket
-                                                .send(message.reply_ok(json!({ "diff": result })))
+                                                .send(message.reply_ok(json!({ "diff": diff })))
                                                 .unwrap();
-
-                                            *prev_dynamics = new_dynamics;
                                         }
                                         None => {
                                             warn!("event received before mount");
@@ -220,11 +199,13 @@ where
                                     let rendered = live_view
                                         .render_dynamic(mount_state.clone())
                                         .expect("failed to render template");
-                                    state = Some((
-                                        mount_state,
-                                        rendered.dynamics.clone().into_iter().enumerate().collect(),
-                                    ));
-                                    socket.send(message.reply_ok(rendered)).unwrap();
+                                    state =
+                                        Some((mount_state, RenderedJson::from(rendered.clone())));
+                                    socket
+                                        .send(message.reply_ok(json!({
+                                            "rendered": RenderedJson::from(rendered)
+                                        })))
+                                        .unwrap();
                                 }
                                 ProtocolEvent::Leave => {
                                     info!("Client left");
@@ -269,99 +250,259 @@ fn csrf_token(_: &HashMap<String, Value>) -> tera::Result<Value> {
     Ok(CsrfToken::get_or_init().masked.clone().into())
 }
 
-#[derive(Clone, Debug)]
-struct Rendered {
-    dynamics: Vec<String>,
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Rendered {
     statics: Vec<String>,
+    dynamics: Vec<DynamicRender>,
+    nested: bool,
 }
 
-impl Serialize for Rendered {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        struct RenderedInner<'a> {
-            dynamics: &'a [String],
-            statics: &'a [String],
-        }
+impl Rendered {
+    fn last_mut(&mut self) -> &mut Rendered {
+        let mut current = self as *mut Self;
 
-        impl Serialize for RenderedInner<'_> {
-            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-            where
-                S: serde::Serializer,
-            {
-                let mut map = serializer.serialize_map(Some(self.dynamics.len() + 1))?;
-                map.serialize_entry("s", &self.statics)?;
-                for (i, value) in self.dynamics.iter().enumerate() {
-                    map.serialize_entry(&i, value)?;
+        loop {
+            // SAFETY: Rust doesn't like this, though it is safe in this case.
+            // This works in polonius, but not Rust's default borrow checker.
+            unsafe {
+                if !(*current).nested {
+                    return &mut *current;
                 }
-                map.end()
+
+                let next = (*current).dynamics.last_mut().and_then(|last| match last {
+                    DynamicRender::String(_) => None,
+                    DynamicRender::Nested(nested) => Some(nested),
+                });
+                match next {
+                    Some(next) => {
+                        current = next;
+                    }
+                    None => {
+                        return &mut *current;
+                    }
+                }
             }
         }
+    }
 
-        let mut s = serializer.serialize_struct("rendered", 1)?;
-        s.serialize_field(
-            "rendered",
-            &RenderedInner {
-                dynamics: &self.dynamics,
-                statics: &self.statics,
-            },
-        )?;
-        s.end()
+    // fn last_parent_mut(&mut self) -> Option<&mut Self> {
+    //     if !self.nested {
+    //         return None;
+    //     }
+
+    //     let mut current = self;
+    //     loop {
+    //         let next = match current.dynamics.last_mut().unwrap() {
+    //             DynamicRender::String(_) => unreachable!(),
+    //             DynamicRender::Nested(nested) => nested,
+    //         };
+    //         if !next.nested {
+    //             return Some(current);
+    //         }
+    //         current = match current.dynamics.last_mut().unwrap() {
+    //             DynamicRender::String(_) => unreachable!(),
+    //             DynamicRender::Nested(nested) => nested,
+    //         };
+    //     }
+    // }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum DynamicRender {
+    String(String),
+    Nested(Rendered),
+}
+
+impl RenderVisitor for Rendered {
+    fn write_static(&mut self, s: Cow<'_, str>) -> io::Result<()> {
+        let last = self.last_mut();
+        if last.statics.len() >= last.dynamics.len() {
+            match last.statics.last_mut() {
+                Some(static_string) => static_string.push_str(&s),
+                None => last.statics.push(s.into_owned()),
+            }
+        } else {
+            last.statics.push(s.into_owned());
+        }
+
+        Ok(())
+    }
+
+    fn write_dynamic(&mut self, s: Cow<'_, str>) -> io::Result<()> {
+        let last = self.last_mut();
+        if last.statics.is_empty() {
+            last.statics.push("".to_string());
+        }
+
+        last.dynamics.push(DynamicRender::String(s.into_owned()));
+
+        if last.statics.len() <= last.dynamics.len() {
+            last.statics.push("".to_string());
+        }
+
+        Ok(())
+    }
+
+    fn push_for_loop_frame(&mut self) {
+        let mut last = self.last_mut();
+        last.nested = true;
+        if last.statics.is_empty() {
+            last.statics.push("".to_string());
+        }
+        last.dynamics
+            .push(DynamicRender::Nested(Rendered::default()));
+        last.statics.push("".to_string());
+    }
+
+    fn push_if_frame(&mut self) {
+        let mut last = self.last_mut();
+        last.nested = true;
+        if last.statics.is_empty() {
+            last.statics.push("".to_string());
+        }
+        last.dynamics
+            .push(DynamicRender::Nested(Rendered::default()));
+        last.statics.push("".to_string());
+    }
+
+    fn pop(&mut self) {
+        let mut last = self.last_mut();
+        last.nested = false;
+        if last.statics.len() <= last.dynamics.len() {
+            last.statics.push("".to_string());
+        }
+
+        // Parent
+        last = self.last_mut();
+        last.nested = false;
+        if last.statics.len() <= last.dynamics.len() {
+            last.statics.push("".to_string());
+        }
     }
 }
 
-impl<'de> Deserialize<'de> for Rendered {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        struct RenderedMap {
-            rendered: Rendered,
-        }
+#[cfg(test)]
+mod template_tests {
+    use serde_json::json;
+    use tera::{Context, Tera};
 
-        impl<'de> Deserialize<'de> for RenderedMap {
-            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-            where
-                D: serde::Deserializer<'de>,
-            {
-                struct RenderedMapVisitor;
+    use super::json::RenderedJson;
+    use super::Rendered;
+    use crate::tera::json::DynamicRenderJson;
 
-                impl<'de> Visitor<'de> for RenderedMapVisitor {
-                    type Value = RenderedMap;
+    fn render_template(content: &str, context: serde_json::Value) -> RenderedJson {
+        let mut tera = Tera::default();
+        tera.autoescape_on(vec![]);
+        tera.add_raw_template("test", content).unwrap();
+        let mut render = Rendered::default();
+        tera.render_to("test", &Context::from_value(context).unwrap(), &mut render)
+            .unwrap();
 
-                    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
-                    where
-                        A: serde::de::MapAccess<'de>,
-                    {
-                        let (_, statics): (String, Vec<String>) = map
-                            .next_entry()?
-                            .ok_or_else(|| <A::Error as serde::de::Error>::missing_field("s"))?;
-                        let dynamics =
-                            std::iter::from_fn(|| map.next_entry::<usize, String>().transpose())
-                                .map(|item| item.map(|(_, value)| value))
-                                .collect::<Result<_, _>>()?;
+        render.into()
+    }
 
-                        Ok(RenderedMap {
-                            rendered: Rendered { dynamics, statics },
-                        })
-                    }
+    macro_rules! assert_eq_dynamics {
+        ($dynamics: expr, $vec: expr) => {
+            assert_eq!($dynamics, $vec.into_iter().enumerate().collect())
+        };
+    }
 
-                    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-                        write!(formatter, "a map of dynamic values and a static array")
-                    }
-                }
+    #[lunatic::test]
+    fn template_basic() {
+        let render = render_template("Hello", json!({}));
 
-                deserializer.deserialize_map(RenderedMapVisitor)
-            }
-        }
+        assert_eq!(render.statics, Some(vec!["Hello".to_string()]));
+        assert!(render.dynamics.is_empty());
+    }
 
-        #[derive(Deserialize)]
-        struct RenderedWrapper {
-            rendered: RenderedMap,
-        }
+    #[lunatic::test]
+    fn template_with_variable() {
+        let render = render_template(
+            "Hello {{ name }}",
+            json!({
+                "name": "Bob",
+            }),
+        );
 
-        let rendered_outer = RenderedWrapper::deserialize(deserializer)?;
-        Ok(rendered_outer.rendered.rendered)
+        assert_eq!(
+            render.statics,
+            Some(vec!["Hello ".to_string(), "".to_string()])
+        );
+        assert_eq_dynamics!(
+            render.dynamics,
+            [DynamicRenderJson::String("Bob".to_string())]
+        );
+    }
+
+    #[lunatic::test]
+    fn template_with_multiple_variables() {
+        let render = render_template(
+            "Hello {{ name }}, you are {{ age }} years old",
+            json!({
+                "name": "Bob",
+                "age": 22,
+            }),
+        );
+
+        assert_eq!(
+            render.statics,
+            Some(vec![
+                "Hello ".to_string(),
+                ", you are ".to_string(),
+                " years old".to_string()
+            ])
+        );
+        assert_eq_dynamics!(
+            render.dynamics,
+            [
+                DynamicRenderJson::String("Bob".to_string()),
+                DynamicRenderJson::String("22".to_string())
+            ]
+        );
+    }
+
+    #[lunatic::test]
+    fn template_with_if_statement() {
+        let render = render_template(
+            "Welcome {% if user %}{{ user }}{% else %}stranger{% endif %}",
+            json!({
+                "user": "Bob",
+            }),
+        );
+
+        assert_eq!(
+            render.statics,
+            Some(vec!["Welcome ".to_string(), "".to_string()])
+        );
+        assert_eq_dynamics!(
+            render.dynamics,
+            [DynamicRenderJson::Nested(RenderedJson {
+                statics: Some(vec!["".to_string(), "".to_string()]),
+                dynamics: [DynamicRenderJson::String("Bob".to_string())]
+                    .into_iter()
+                    .enumerate()
+                    .collect()
+            })]
+        );
+    }
+
+    #[lunatic::test]
+    fn template_with_nested_if_statement() {
+        let render = render_template(
+            r#"
+                {%- if count >= 1 -%}
+                    <p>Count is high!</p>
+                    {%- if count >= 2 -%}
+                        <p>Count is very high!</p>
+                    {%- endif -%}
+                {%- endif -%}
+            "#,
+            json!({
+                "count": 0,
+            }),
+        );
+
+        assert_eq!(render.statics, Some(vec!["".to_string(), "".to_string()]));
+        assert_eq_dynamics!(render.dynamics, [DynamicRenderJson::String("".to_string())]);
     }
 }

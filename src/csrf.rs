@@ -34,13 +34,13 @@ fn generate_token() -> String {
 /// Masks a token by xor'ing with another generated token.
 fn mask(token: &str) -> String {
     let mask = generate_token();
-    let exored: Vec<_> = token
+    let xor: Vec<_> = token
         .as_bytes()
         .iter()
         .zip(mask.as_bytes().iter())
         .map(|(x1, x2)| x1 & x2)
         .collect();
-    let mut masked = base64::encode_config(exored, base64::URL_SAFE);
+    let mut masked = base64::encode_config(xor, base64::URL_SAFE);
     masked.push_str(&mask);
     masked
 }

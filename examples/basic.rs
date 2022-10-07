@@ -7,7 +7,10 @@ use subview::{live_view, LiveView, LiveViewEvent};
 
 fn main() -> std::io::Result<()> {
     LiveViewTera::<Chat>::start_link(
-        "templates/foo.html".into(),
+        (
+            "templates/layout.html".into(),
+            "templates/index.html".into(),
+        ),
         Some(stringify!(Chat "templates/foo.html")),
     );
 
@@ -20,18 +23,18 @@ fn main() -> std::io::Result<()> {
 
 #[derive(Clone, Serialize, Deserialize)]
 struct Chat {
-    name: String,
-    age: i32,
+    // name: String,
+    // age: i32,
     count: i32,
 }
 
 impl LiveView for Chat {
-    type Events = Increment;
+    type Events = (Increment,);
 
     fn mount(_socket: Option<&Socket>) -> Self {
         Chat {
-            name: "Ari".to_string(),
-            age: 22,
+            // name: "Ari".to_string(),
+            // age: 22,
             count: 0,
         }
     }

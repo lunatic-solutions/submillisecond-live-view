@@ -1,0 +1,7 @@
+<button phx-click="increment">Increment</button>
+{% if count >= 1 %}
+  <p>Count is high!</p>
+  {% if count >= 2 %}
+    <p>Count is very high!</p>
+  {% endif %}
+{% endif %}

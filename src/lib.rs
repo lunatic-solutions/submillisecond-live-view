@@ -47,7 +47,13 @@ pub trait EventList<T> {
     fn handle_event(state: &mut T, event: Event) -> Result<bool, serde_json::Error>;
 }
 
-impl<T, A> EventList<T> for A
+impl<T> EventList<T> for () {
+    fn handle_event(_state: &mut T, _event: Event) -> Result<bool, serde_json::Error> {
+        Ok(false)
+    }
+}
+
+impl<T, A> EventList<T> for (A,)
 where
     T: LiveViewEvent<A>,
     A: for<'de> Deserialize<'de>,
