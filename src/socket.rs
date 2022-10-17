@@ -1,18 +1,71 @@
 use std::convert::{TryFrom, TryInto};
+use std::mem;
+use std::time::{SystemTime, UNIX_EPOCH};
 
+use rand::distributions::Alphanumeric;
+use rand::rngs::ThreadRng;
+use rand::{Rng, RngCore};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use submillisecond::websocket::WebSocketConnection;
 use thiserror::Error;
 
+pub struct SocketBuilder {
+    id: String,
+    conn: WebSocketConnection,
+    vsn: u128,
+    rng: ThreadRng,
+}
+
+impl SocketBuilder {
+    pub fn generate_secret_key(mut self) -> Socket {
+        let mut secret_key = [0; 64];
+        self.rng.fill_bytes(&mut secret_key);
+
+        Socket {
+            id: self.id,
+            conn: self.conn,
+            secret_key,
+            vsn: self.vsn,
+        }
+    }
+
+    pub fn secret_key(self, secret_key: [u8; 64]) -> Socket {
+        Socket {
+            id: self.id,
+            conn: self.conn,
+            secret_key,
+            vsn: self.vsn,
+        }
+    }
+}
+
 /// Wrapper around a websocket connection to handle phoenix channels.
 pub struct Socket {
+    id: String,
     conn: WebSocketConnection,
+    secret_key: [u8; 64],
+    vsn: u128,
 }
 
 impl Socket {
-    pub fn new(conn: WebSocketConnection) -> Self {
-        Socket { conn }
+    pub fn builder(conn: WebSocketConnection) -> SocketBuilder {
+        let mut rng = rand::thread_rng();
+        let id = (&mut rng)
+            .sample_iter(Alphanumeric)
+            .take(16)
+            .map(char::from)
+            .collect();
+
+        SocketBuilder {
+            id,
+            conn,
+            rng,
+            vsn: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos(),
+        }
     }
 
     pub fn receive(&mut self) -> Result<SocketMessage, SocketError> {
@@ -27,7 +80,22 @@ impl Socket {
             )?))?;
         Ok(())
     }
+
+    // fn sign_root_session(&self, router, view, session, live_session) {
+
+    // }
 }
+
+// struct Session {
+//     id: socket.id,
+//     view: view,
+//     root_view: view,
+//     router: router,
+//     live_session: live_session_pair,
+//     parent_pid: Option<>,
+//     root_pid: Option<>,
+//     session: session
+// }
 
 /// Protocol-reserved events.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -91,8 +159,12 @@ impl Message {
         self
     }
 
-    pub fn as_event(&self) -> Result<Event, serde_json::Error> {
-        serde_json::from_value(self.payload.clone())
+    pub fn take_event(&mut self) -> Result<Event, serde_json::Error> {
+        serde_json::from_value(mem::take(&mut self.payload))
+    }
+
+    pub fn take_join_event(&mut self) -> Result<JoinEvent, serde_json::Error> {
+        serde_json::from_value(mem::take(&mut self.payload))
     }
 
     fn to_tuple(
@@ -141,6 +213,32 @@ pub struct Event {
     pub value: Value,
 }
 
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct JoinEvent {
+    pub url: Option<String>,
+    pub redirect: Option<String>,
+    pub params: JoinEventParams,
+    pub session: String,
+    #[serde(rename = "static")]
+    pub static_token: Option<String>,
+}
+
+impl JoinEvent {
+    pub fn url(&self) -> Option<&String> {
+        self.url.as_ref().or(self.redirect.as_ref())
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct JoinEventParams {
+    #[serde(rename = "_csrf_token")]
+    csrf_token: String,
+    #[serde(rename = "_mounts")]
+    mounts: u32,
+    #[serde(rename = "_track_static", default)]
+    track_static: Vec<String>,
+}
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Response<T> {
     status: Status,
@@ -187,7 +285,7 @@ impl TryFrom<tungstenite::Message> for SocketMessage {
 #[derive(Debug, Error)]
 pub enum SocketError {
     #[error(transparent)]
-    ReadMessageFailed(#[from] tungstenite::Error),
+    WebsocketError(#[from] tungstenite::Error),
     #[error(transparent)]
     DeserializeError(#[from] serde_json::Error),
 }

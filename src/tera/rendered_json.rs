@@ -5,7 +5,8 @@ use serde::de::Visitor;
 use serde::ser::SerializeMap;
 use serde::{Deserialize, Serialize};
 
-use super::{DynamicRender, Rendered};
+use super::rendered::DynamicRender;
+use super::Rendered;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct RenderedJson {

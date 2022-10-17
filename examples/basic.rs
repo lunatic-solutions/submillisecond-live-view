@@ -1,11 +1,12 @@
 use serde::{Deserialize, Serialize};
 use submillisecond::{router, static_router, Application};
 use subview::socket::Socket;
-use subview::{LiveView, LiveViewEvent, LiveViewRoute};
+use subview::tera::LiveViewTera;
+use subview::{LiveView, LiveViewEvent};
 
 fn main() -> std::io::Result<()> {
     Application::new(router! {
-        "/" => LiveViewRoute::<Chat>::new("templates/layout.html", "templates/index.html")
+        "/" => LiveViewTera::<Chat>::route("templates/layout.html", "templates/index.html") // LiveViewRoute::<LiveViewTera<Chat>, Chat>::new("templates/layout.html", "templates/index.html")
         "/static" => static_router!("./static")
     })
     .serve("127.0.0.1:3000")
