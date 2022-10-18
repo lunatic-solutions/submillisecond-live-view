@@ -34,6 +34,7 @@ impl<T> LiveViewTera<T>
 where
     T: Serialize + for<'de> Deserialize<'de>,
 {
+    /// Register a template with a live view.
     pub fn route(layout: &'static str, template: &'static str) -> LiveViewHandler<Self, T> {
         let process_name = format!("{}-{}-{}", std::any::type_name::<T>(), layout, template);
 
@@ -115,7 +116,7 @@ pub enum LiveViewTeraError {
     EventBeforeMount,
 }
 
-pub struct LiveViewTeraRenderer<T> {
+struct LiveViewTeraRenderer<T> {
     tera: Tera,
     data: PhantomData<T>,
 }
