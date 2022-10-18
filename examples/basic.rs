@@ -6,7 +6,7 @@ use subview::{LiveView, LiveViewEvent};
 
 fn main() -> std::io::Result<()> {
     Application::new(router! {
-        "/" => LiveViewTera::<Chat>::route("templates/layout.html", "templates/index.html") // LiveViewRoute::<LiveViewTera<Chat>, Chat>::new("templates/layout.html", "templates/index.html")
+        "/" => LiveViewTera::<Chat>::route(b"some-secret-key".to_vec(), "templates/layout.html", "templates/index.html") // LiveViewRoute::<LiveViewTera<Chat>, Chat>::new("templates/layout.html", "templates/index.html")
         "/static" => static_router!("./static")
     })
     .serve("127.0.0.1:3000")

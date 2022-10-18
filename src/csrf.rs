@@ -6,6 +6,7 @@ process_local! {
     static CSRF_TOKEN: OnceCell<CsrfToken> = OnceCell::new();
 }
 
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct CsrfToken {
     pub masked: String,
     pub unmasked: String,
@@ -17,6 +18,10 @@ impl CsrfToken {
         let masked = mask(&unmasked);
 
         CsrfToken { masked, unmasked }
+    }
+
+    pub fn get() -> Option<&'static Self> {
+        CSRF_TOKEN.with(|token| token.get())
     }
 
     pub fn get_or_init() -> &'static Self {

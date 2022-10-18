@@ -232,15 +232,15 @@ impl JoinEvent {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct JoinEventParams {
     #[serde(rename = "_csrf_token")]
-    csrf_token: String,
+    pub csrf_token: String,
     #[serde(rename = "_mounts")]
-    mounts: u32,
+    pub mounts: u32,
     #[serde(rename = "_track_static", default)]
-    track_static: Vec<String>,
+    pub track_static: Vec<String>,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct Response<T> {
+struct Response<T> {
     status: Status,
     response: T,
 }
