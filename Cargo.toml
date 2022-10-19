@@ -8,7 +8,7 @@ base64 = "0.13"
 hmac = { version = "0.12.1", features = ["std"] }
 itertools = "0.10"
 jwt = "0.16.0"
-lunatic = "^0.11.1"
+lunatic = "0.11.4"
 lunatic-log = "0.2"
 once_cell = "1.14"
 rand = "0.8"
