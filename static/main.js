@@ -18,7 +18,7 @@
   // js/phoenix/constants.js
   var globalSelf = typeof self !== "undefined" ? self : null;
   var phxWindow = typeof window !== "undefined" ? window : null;
-  var global = globalSelf || phxWindow || global;
+  var global$1 = globalSelf || phxWindow || global$1;
   var DEFAULT_VSN = "2.0.0";
   var SOCKET_STATES = { connecting: 0, open: 1, closing: 2, closed: 3 };
   var DEFAULT_TIMEOUT = 1e4;
@@ -343,11 +343,11 @@
   // js/phoenix/ajax.js
   var Ajax = class {
     static request(method, endPoint, accept, body, timeout, ontimeout, callback) {
-      if (global.XDomainRequest) {
-        let req = new global.XDomainRequest();
+      if (global$1.XDomainRequest) {
+        let req = new global$1.XDomainRequest();
         return this.xdomainRequest(req, method, endPoint, body, timeout, ontimeout, callback);
       } else {
-        let req = new global.XMLHttpRequest();
+        let req = new global$1.XMLHttpRequest();
         return this.xhrRequest(req, method, endPoint, accept, body, timeout, ontimeout, callback);
       }
     }
@@ -635,7 +635,7 @@
       this.sendBuffer = [];
       this.ref = 0;
       this.timeout = opts.timeout || DEFAULT_TIMEOUT;
-      this.transport = opts.transport || global.WebSocket || LongPoll;
+      this.transport = opts.transport || global$1.WebSocket || LongPoll;
       this.establishedConnections = 0;
       this.defaultEncoder = serializer_default.encode.bind(serializer_default);
       this.defaultDecoder = serializer_default.decode.bind(serializer_default);
@@ -4881,8 +4881,167 @@ within:
     }
   };
 
-  // If you want to use Phoenix channels, run `mix help phx.gen.channel`
-  // import topbar from "../vendor/topbar";
+  var commonjsGlobal = typeof globalThis !== 'undefined' ? globalThis : typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
+
+  var topbar$1 = {exports: {}};
+
+  /**
+   * @license MIT
+   * topbar 1.0.0, 2021-01-06
+   * https://buunguyen.github.io/topbar
+   * Copyright (c) 2021 Buu Nguyen
+   */
+
+  (function (module) {
+  	(function (window, document) {
+
+  	  // https://gist.github.com/paulirish/1579671
+  	  (function () {
+  	    var lastTime = 0;
+  	    var vendors = ["ms", "moz", "webkit", "o"];
+  	    for (var x = 0; x < vendors.length && !window.requestAnimationFrame; ++x) {
+  	      window.requestAnimationFrame =
+  	        window[vendors[x] + "RequestAnimationFrame"];
+  	      window.cancelAnimationFrame =
+  	        window[vendors[x] + "CancelAnimationFrame"] ||
+  	        window[vendors[x] + "CancelRequestAnimationFrame"];
+  	    }
+  	    if (!window.requestAnimationFrame)
+  	      window.requestAnimationFrame = function (callback, element) {
+  	        var currTime = new Date().getTime();
+  	        var timeToCall = Math.max(0, 16 - (currTime - lastTime));
+  	        var id = window.setTimeout(function () {
+  	          callback(currTime + timeToCall);
+  	        }, timeToCall);
+  	        lastTime = currTime + timeToCall;
+  	        return id;
+  	      };
+  	    if (!window.cancelAnimationFrame)
+  	      window.cancelAnimationFrame = function (id) {
+  	        clearTimeout(id);
+  	      };
+  	  })();
+
+  	  var canvas,
+  	    progressTimerId,
+  	    fadeTimerId,
+  	    currentProgress,
+  	    showing,
+  	    addEvent = function (elem, type, handler) {
+  	      if (elem.addEventListener) elem.addEventListener(type, handler, false);
+  	      else if (elem.attachEvent) elem.attachEvent("on" + type, handler);
+  	      else elem["on" + type] = handler;
+  	    },
+  	    options = {
+  	      autoRun: true,
+  	      barThickness: 3,
+  	      barColors: {
+  	        0: "rgba(26,  188, 156, .9)",
+  	        ".25": "rgba(52,  152, 219, .9)",
+  	        ".50": "rgba(241, 196, 15,  .9)",
+  	        ".75": "rgba(230, 126, 34,  .9)",
+  	        "1.0": "rgba(211, 84,  0,   .9)",
+  	      },
+  	      shadowBlur: 10,
+  	      shadowColor: "rgba(0,   0,   0,   .6)",
+  	      className: null,
+  	    },
+  	    repaint = function () {
+  	      canvas.width = window.innerWidth;
+  	      canvas.height = options.barThickness * 5; // need space for shadow
+
+  	      var ctx = canvas.getContext("2d");
+  	      ctx.shadowBlur = options.shadowBlur;
+  	      ctx.shadowColor = options.shadowColor;
+
+  	      var lineGradient = ctx.createLinearGradient(0, 0, canvas.width, 0);
+  	      for (var stop in options.barColors)
+  	        lineGradient.addColorStop(stop, options.barColors[stop]);
+  	      ctx.lineWidth = options.barThickness;
+  	      ctx.beginPath();
+  	      ctx.moveTo(0, options.barThickness / 2);
+  	      ctx.lineTo(
+  	        Math.ceil(currentProgress * canvas.width),
+  	        options.barThickness / 2
+  	      );
+  	      ctx.strokeStyle = lineGradient;
+  	      ctx.stroke();
+  	    },
+  	    createCanvas = function () {
+  	      canvas = document.createElement("canvas");
+  	      var style = canvas.style;
+  	      style.position = "fixed";
+  	      style.top = style.left = style.right = style.margin = style.padding = 0;
+  	      style.zIndex = 100001;
+  	      style.display = "none";
+  	      if (options.className) canvas.classList.add(options.className);
+  	      document.body.appendChild(canvas);
+  	      addEvent(window, "resize", repaint);
+  	    },
+  	    topbar = {
+  	      config: function (opts) {
+  	        for (var key in opts)
+  	          if (options.hasOwnProperty(key)) options[key] = opts[key];
+  	      },
+  	      show: function () {
+  	        if (showing) return;
+  	        showing = true;
+  	        if (fadeTimerId !== null) window.cancelAnimationFrame(fadeTimerId);
+  	        if (!canvas) createCanvas();
+  	        canvas.style.opacity = 1;
+  	        canvas.style.display = "block";
+  	        topbar.progress(0);
+  	        if (options.autoRun) {
+  	          (function loop() {
+  	            progressTimerId = window.requestAnimationFrame(loop);
+  	            topbar.progress(
+  	              "+" + 0.05 * Math.pow(1 - Math.sqrt(currentProgress), 2)
+  	            );
+  	          })();
+  	        }
+  	      },
+  	      progress: function (to) {
+  	        if (typeof to === "undefined") return currentProgress;
+  	        if (typeof to === "string") {
+  	          to =
+  	            (to.indexOf("+") >= 0 || to.indexOf("-") >= 0
+  	              ? currentProgress
+  	              : 0) + parseFloat(to);
+  	        }
+  	        currentProgress = to > 1 ? 1 : to;
+  	        repaint();
+  	        return currentProgress;
+  	      },
+  	      hide: function () {
+  	        if (!showing) return;
+  	        showing = false;
+  	        if (progressTimerId != null) {
+  	          window.cancelAnimationFrame(progressTimerId);
+  	          progressTimerId = null;
+  	        }
+  	        (function loop() {
+  	          if (topbar.progress("+.1") >= 1) {
+  	            canvas.style.opacity -= 0.05;
+  	            if (canvas.style.opacity <= 0.05) {
+  	              canvas.style.display = "none";
+  	              fadeTimerId = null;
+  	              return;
+  	            }
+  	          }
+  	          fadeTimerId = window.requestAnimationFrame(loop);
+  	        })();
+  	      },
+  	    };
+
+  	  {
+  	    module.exports = topbar;
+  	  }
+  	}.call(commonjsGlobal, window, document));
+  } (topbar$1));
+
+  var topbar = topbar$1.exports;
+
+  // Establish Phoenix Socket and LiveView configuration.
 
   let csrfToken = document
     .querySelector("meta[name='csrf-token']")
@@ -4892,9 +5051,9 @@ within:
   });
 
   // Show progress bar on live navigation and form submits
-  // topbar.config({ barColors: { 0: "#29d" }, shadowColor: "rgba(0, 0, 0, .3)" });
-  // window.addEventListener("phx:page-loading-start", (info) => topbar.show());
-  // window.addEventListener("phx:page-loading-stop", (info) => topbar.hide());
+  topbar.config({ barColors: { 0: "#29d" }, shadowColor: "rgba(0, 0, 0, .3)" });
+  window.addEventListener("phx:page-loading-start", (info) => topbar.show());
+  window.addEventListener("phx:page-loading-stop", (info) => topbar.hide());
 
   // connect if there are any LiveViews on the page
   liveSocket.connect();

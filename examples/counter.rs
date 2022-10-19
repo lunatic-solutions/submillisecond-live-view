@@ -8,7 +8,7 @@ fn main() -> std::io::Result<()> {
     LiveViewContext::init(b"some-secret-key", "templates/layout.html");
 
     Application::new(router! {
-        "/" => LiveViewTera::<Counter>::route("templates/index.html")
+        "/" => LiveViewTera::<Counter>::route("templates/counter.html")
         "/static" => static_router!("./static")
     })
     .serve("127.0.0.1:3000")
