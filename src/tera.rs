@@ -22,14 +22,16 @@ use thiserror::Error;
 
 use self::rendered::Rendered;
 use crate::csrf::CsrfToken;
-use crate::live_view::{LiveViewSocket, LiveViewSocketResult};
+use crate::handler::LiveViewHandler;
+use crate::manager::{LiveViewManager, LiveViewManagerResult};
 use crate::socket::{Event, JoinEvent};
 use crate::tera::rendered_json::RenderedJson;
-use crate::{LiveView, LiveViewHandler};
+use crate::LiveView;
+
+const LIVE_VIEW_CONTEXT_ID: &str = "live_view_context-699a5452-a8c9-413e-a77f-068736b37783";
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct LiveViewTera<T> {
-    secret: Vec<u8>,
     template_process: ProcessRef<LiveViewTeraRenderer<T>>,
 }
 
@@ -38,28 +40,27 @@ where
     T: Serialize + for<'de> Deserialize<'de>,
 {
     /// Register a template with a live view.
-    pub fn route(
-        secret: Vec<u8>,
-        layout: &'static str,
-        template: &'static str,
-    ) -> LiveViewHandler<Self, T> {
-        let process_name = format!("{}-{}-{}", std::any::type_name::<T>(), layout, template);
+    pub fn route(template: &'static str) -> LiveViewHandler<Self, T> {
+        let live_view_context = ProcessRef::<LiveViewContext>::lookup(LIVE_VIEW_CONTEXT_ID)
+            .expect("live view context not initialized");
+        let layout = live_view_context.layout();
+        let process_name = format!(
+            "{}-{}-{}",
+            std::any::type_name::<T>(),
+            layout.to_string_lossy(),
+            template
+        );
 
         let template_process = match ProcessRef::lookup(&process_name) {
             Some(template_process) => template_process,
-            None => {
-                LiveViewTeraRenderer::start((layout.into(), template.into()), Some(&process_name))
-            }
+            None => LiveViewTeraRenderer::start((layout, template.into()), Some(&process_name)),
         };
 
-        LiveViewHandler::new(LiveViewTera {
-            secret,
-            template_process,
-        })
+        LiveViewHandler::new(LiveViewTera { template_process })
     }
 }
 
-impl<T> LiveViewSocket<T> for LiveViewTera<T>
+impl<T> LiveViewManager<T> for LiveViewTera<T>
 where
     T: LiveView + Clone + Serialize + for<'de> Deserialize<'de>,
 {
@@ -75,8 +76,11 @@ where
             .map(char::from)
             .collect();
 
-        let key: Hmac<Sha256> =
-            Hmac::new_from_slice(&self.secret).expect("unable to encode secret");
+        let live_view_context = ProcessRef::<LiveViewContext>::lookup(LIVE_VIEW_CONTEXT_ID)
+            .expect("live view context not initialized");
+        let secret = live_view_context.secret();
+
+        let key: Hmac<Sha256> = Hmac::new_from_slice(&secret).expect("unable to encode secret");
 
         let csrf_token = CsrfToken::generate().masked;
         let session = Session {
@@ -100,14 +104,17 @@ where
         &self,
         event: JoinEvent,
         values: &T,
-    ) -> LiveViewSocketResult<(Self::State, Self::Reply), Self::Error> {
-        let key: Hmac<Sha256> =
-            Hmac::new_from_slice(&self.secret).expect("unable to encode secret");
+    ) -> LiveViewManagerResult<(Self::State, Self::Reply), Self::Error> {
+        let live_view_context = ProcessRef::<LiveViewContext>::lookup(LIVE_VIEW_CONTEXT_ID)
+            .expect("live view context not initialized");
+        let secret = live_view_context.secret();
+
+        let key: Hmac<Sha256> = Hmac::new_from_slice(&secret).expect("unable to encode secret");
         let session: Session = event.session.verify_with_key(&key).expect("nope!");
 
         // Verify csrf token
         if session.csrf_token != event.params.csrf_token {
-            return LiveViewSocketResult::FatalError(LiveViewTeraError::InvalidCsrfToken);
+            return LiveViewManagerResult::FatalError(LiveViewTeraError::InvalidCsrfToken);
         }
 
         let rendered = self
@@ -116,7 +123,7 @@ where
             .expect("failed to render template");
         let state = RenderedJson::from(rendered.clone());
         let reply = json!({ "rendered": RenderedJson::from(rendered) });
-        LiveViewSocketResult::Ok((state, reply))
+        LiveViewManagerResult::Ok((state, reply))
     }
 
     fn handle_event(
@@ -124,7 +131,7 @@ where
         state: &mut Self::State,
         _event: Event,
         values: &T,
-    ) -> LiveViewSocketResult<Self::Reply, Self::Error> {
+    ) -> LiveViewManagerResult<Self::Reply, Self::Error> {
         let rendered = RenderedJson::from(
             self.template_process
                 .render_dynamic(values.clone())
@@ -134,12 +141,48 @@ where
         let diff = state.diff(&rendered);
         *state = rendered;
 
-        LiveViewSocketResult::Ok(json!({ "diff": diff }))
+        LiveViewManagerResult::Ok(json!({ "diff": diff }))
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct LiveViewContext {
+    secret: Vec<u8>,
+    layout: PathBuf,
+}
+
+impl LiveViewContext {
+    pub fn init(secret: &[u8], layout: impl Into<PathBuf>) -> ProcessRef<LiveViewContext> {
+        LiveViewContext::start(
+            LiveViewContext {
+                secret: secret.into(),
+                layout: layout.into(),
+            },
+            Some(LIVE_VIEW_CONTEXT_ID),
+        )
+    }
+}
+
+#[abstract_process]
+impl LiveViewContext {
+    #[init]
+    fn initialize(_: ProcessRef<Self>, ctx: Self) -> Self {
+        ctx
+    }
+
+    #[handle_request]
+    fn secret(&self) -> Vec<u8> {
+        self.secret.clone()
+    }
+
+    #[handle_request]
+    fn layout(&self) -> PathBuf {
+        self.layout.clone()
     }
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Session {
+struct Session {
     csrf_token: String,
 }
 

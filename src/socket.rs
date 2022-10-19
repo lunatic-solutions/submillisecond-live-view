@@ -1,71 +1,19 @@
 use std::convert::{TryFrom, TryInto};
 use std::mem;
-use std::time::{SystemTime, UNIX_EPOCH};
 
-use rand::distributions::Alphanumeric;
-use rand::rngs::ThreadRng;
-use rand::{Rng, RngCore};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use submillisecond::websocket::WebSocketConnection;
 use thiserror::Error;
 
-pub struct SocketBuilder {
-    id: String,
-    conn: WebSocketConnection,
-    vsn: u128,
-    rng: ThreadRng,
-}
-
-impl SocketBuilder {
-    pub fn generate_secret_key(mut self) -> Socket {
-        let mut secret_key = [0; 64];
-        self.rng.fill_bytes(&mut secret_key);
-
-        Socket {
-            id: self.id,
-            conn: self.conn,
-            secret_key,
-            vsn: self.vsn,
-        }
-    }
-
-    pub fn secret_key(self, secret_key: [u8; 64]) -> Socket {
-        Socket {
-            id: self.id,
-            conn: self.conn,
-            secret_key,
-            vsn: self.vsn,
-        }
-    }
-}
-
 /// Wrapper around a websocket connection to handle phoenix channels.
 pub struct Socket {
-    id: String,
     conn: WebSocketConnection,
-    secret_key: [u8; 64],
-    vsn: u128,
 }
 
 impl Socket {
-    pub fn builder(conn: WebSocketConnection) -> SocketBuilder {
-        let mut rng = rand::thread_rng();
-        let id = (&mut rng)
-            .sample_iter(Alphanumeric)
-            .take(16)
-            .map(char::from)
-            .collect();
-
-        SocketBuilder {
-            id,
-            conn,
-            rng,
-            vsn: SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_nanos(),
-        }
+    pub fn new(conn: WebSocketConnection) -> Self {
+        Socket { conn }
     }
 
     pub fn receive(&mut self) -> Result<SocketMessage, SocketError> {
@@ -80,22 +28,7 @@ impl Socket {
             )?))?;
         Ok(())
     }
-
-    // fn sign_root_session(&self, router, view, session, live_session) {
-
-    // }
 }
-
-// struct Session {
-//     id: socket.id,
-//     view: view,
-//     root_view: view,
-//     router: router,
-//     live_session: live_session_pair,
-//     parent_pid: Option<>,
-//     root_pid: Option<>,
-//     session: session
-// }
 
 /// Protocol-reserved events.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]

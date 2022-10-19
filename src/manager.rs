@@ -7,7 +7,7 @@ use submillisecond::RequestContext;
 use crate::socket::{Event, JoinEvent};
 
 /// Handles requests and events.
-pub trait LiveViewSocket<T> {
+pub trait LiveViewManager<T> {
     type State;
     type Reply: Serialize;
     type Error: fmt::Display;
@@ -20,7 +20,7 @@ pub trait LiveViewSocket<T> {
         &self,
         event: JoinEvent,
         values: &T,
-    ) -> LiveViewSocketResult<(Self::State, Self::Reply), Self::Error>;
+    ) -> LiveViewManagerResult<(Self::State, Self::Reply), Self::Error>;
 
     /// Handle an event.
     fn handle_event(
@@ -28,14 +28,14 @@ pub trait LiveViewSocket<T> {
         state: &mut Self::State,
         event: Event,
         values: &T,
-    ) -> LiveViewSocketResult<Self::Reply, Self::Error>;
+    ) -> LiveViewManagerResult<Self::Reply, Self::Error>;
 }
 
 /// Live view socket result for returning a response with a recoverable error,
 /// or fatal error.
 ///
 /// If fatal error is returned, the websocket connection is closed.
-pub enum LiveViewSocketResult<T, E> {
+pub enum LiveViewManagerResult<T, E> {
     Ok(T),
     Error(E),
     FatalError(E),
