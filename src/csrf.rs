@@ -1,10 +1,4 @@
-use lunatic::process_local;
-use once_cell::sync::OnceCell;
 use rand::{thread_rng, Rng};
-
-process_local! {
-    static CSRF_TOKEN: OnceCell<CsrfToken> = OnceCell::new();
-}
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct CsrfToken {
@@ -13,19 +7,12 @@ pub struct CsrfToken {
 }
 
 impl CsrfToken {
+    /// Generates a crypto secure random key url-safe base64 encoded.
     pub fn generate() -> Self {
         let unmasked = generate_token();
         let masked = mask(&unmasked);
 
         CsrfToken { masked, unmasked }
-    }
-
-    pub fn get() -> Option<&'static Self> {
-        CSRF_TOKEN.with(|token| token.get())
-    }
-
-    pub fn get_or_init() -> &'static Self {
-        CSRF_TOKEN.with(|token| token.get_or_init(Self::generate))
     }
 }
 

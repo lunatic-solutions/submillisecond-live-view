@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 use submillisecond::{router, static_router, Application};
-use subview::socket::Socket;
-use subview::tera::{LiveViewContext, LiveViewTera};
-use subview::{LiveView, LiveViewEvent};
+use submillisecond_live_view::socket::Socket;
+use submillisecond_live_view::tera::{LiveViewContext, LiveViewTera};
+use submillisecond_live_view::{LiveView, LiveViewEvent};
 
 fn main() -> std::io::Result<()> {
     LiveViewContext::init(b"some-secret-key", "templates/layout.html");
