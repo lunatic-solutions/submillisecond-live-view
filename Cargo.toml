@@ -23,3 +23,6 @@ submillisecond = { version = "0.2.0-beta0", features = [
 tera = { git = "https://github.com/tqwewe/tera", branch = "live-view" }
 thiserror = "1.0"
 tungstenite = "0.17"
+
+[dev-dependencies]
+uuid = { version = "1.2", features = ["serde", "v4"] }

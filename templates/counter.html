@@ -1,8 +1,8 @@
-<button phx-click="increment">Increment</button>
+<button phx-click="increment" phx-value-foo="bar">Increment</button>
 <button phx-click="decrement">Decrement</button>
 
 <p>Count is {{ count }}</p>
 
 {% if count >= 5 %}
-  <p>Count is high!</p>
+<p>Count is high!</p>
 {% endif %}

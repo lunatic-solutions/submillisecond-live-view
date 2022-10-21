@@ -5048,6 +5048,11 @@ within:
     .getAttribute("content");
   let liveSocket = new LiveSocket("/live", Socket, {
     params: { _csrf_token: csrfToken },
+    metadata: {
+      click: (e, t) => ({
+        detail: e.detail,
+      }),
+    },
   });
 
   // Show progress bar on live navigation and form submits
