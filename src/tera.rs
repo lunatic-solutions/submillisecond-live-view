@@ -244,6 +244,7 @@ where
 
         let mut context = Context::new();
         context.insert("csrf_token", &csrf_token);
+        context.insert("live_view_name", std::any::type_name::<T>());
         context.insert(
             "inner_content",
             &format!(r#"<div data-phx-main="true" data-phx-static="" data-phx-session="{session}" id="{id}">{content}</div>"#),
