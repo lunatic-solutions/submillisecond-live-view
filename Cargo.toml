@@ -11,6 +11,7 @@ itertools = "0.10"
 jwt = "0.16.0"
 lunatic = "0.11.4"
 lunatic-log = "0.2"
+maud = { path = "./crates/maud/maud" }
 rand = "0.8"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -20,7 +21,8 @@ submillisecond = { version = "0.2.0-beta0", features = [
   "cookies",
   "websocket",
 ] }
-tera = { git = "https://github.com/tqwewe/tera", branch = "live-view" }
+# tera = { git = "https://github.com/tqwewe/tera", branch = "live-view" }
+tera = { path = "../../Keats/tera" }
 thiserror = "1.0"
 tungstenite = "0.17"
 

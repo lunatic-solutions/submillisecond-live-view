@@ -9,7 +9,7 @@ use submillisecond::response::{IntoResponse, Response};
 use submillisecond::websocket::WebSocket;
 use submillisecond::{Handler, RequestContext};
 
-use crate::manager::{LiveViewManager, LiveViewManagerResult};
+use crate::manager::{Join, LiveViewManager, LiveViewManagerResult};
 use crate::socket::{Message, ProtocolEvent, Socket, SocketError, SocketMessage};
 use crate::{EventList, LiveView};
 
@@ -95,7 +95,7 @@ where
 
 fn handle_message<L, T>(
     socket: &mut Socket,
-    live_view: &L,
+    manager: &L,
     mut message: Message,
     state: &mut Option<(T, L::State)>,
 ) -> bool
@@ -112,8 +112,8 @@ where
         ProtocolEvent::Error => true,
         ProtocolEvent::Event => match message.take_event() {
             Ok(event) => match state.as_mut() {
-                Some((state, socket_state)) => {
-                    match <T::Events as EventList<T>>::handle_event(state, event.clone()) {
+                Some((live_view, state)) => {
+                    match <T::Events as EventList<T>>::handle_event(live_view, event.clone()) {
                         Ok(handled) => {
                             if !handled {
                                 warn!("received unknown event");
@@ -126,7 +126,7 @@ where
                         }
                     }
 
-                    let result = live_view.handle_event(socket_state, event, state);
+                    let result = manager.handle_event(event, state, live_view);
                     match result {
                         LiveViewManagerResult::Ok(reply) => {
                             match socket.send(message.reply_ok(reply)) {
@@ -172,10 +172,13 @@ where
         }
         ProtocolEvent::Join => {
             let join_event = message.take_join_event().expect("invalid join event");
-            let mount_state = T::mount(Some(socket));
-            match live_view.handle_join(join_event, &mount_state) {
-                LiveViewManagerResult::Ok((new_state, reply)) => {
-                    *state = Some((mount_state, new_state));
+            match manager.handle_join(join_event) {
+                LiveViewManagerResult::Ok(Join {
+                    live_view,
+                    state: new_state,
+                    reply,
+                }) => {
+                    *state = Some((live_view, new_state));
                     socket.send(message.reply_ok(reply)).unwrap();
                     true
                 }

@@ -25,6 +25,7 @@ impl Rendered {
 
                 let next = (*current).dynamics.last_mut().and_then(|last| match last {
                     DynamicRender::String(_) => None,
+                    DynamicRender::Array(_) => None,
                     DynamicRender::Nested(nested) => Some(nested),
                 });
                 match next {
@@ -43,11 +44,13 @@ impl Rendered {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DynamicRender {
     String(String),
+    Array(Vec<DynamicRender>),
     Nested(Rendered),
 }
 
 impl RenderVisitor for Rendered {
     fn write_static(&mut self, s: Cow<'_, str>) -> io::Result<()> {
+        println!("write static");
         let last = self.last_mut();
         if last.statics.len() >= last.dynamics.len() {
             match last.statics.last_mut() {
@@ -62,6 +65,7 @@ impl RenderVisitor for Rendered {
     }
 
     fn write_dynamic(&mut self, s: Cow<'_, str>) -> io::Result<()> {
+        println!("write dynamic");
         let last = self.last_mut();
         if last.statics.is_empty() {
             last.statics.push("".to_string());
@@ -77,17 +81,19 @@ impl RenderVisitor for Rendered {
     }
 
     fn push_for_loop_frame(&mut self) {
+        println!("push for loop frame");
         let mut last = self.last_mut();
         last.nested = true;
         if last.statics.is_empty() {
             last.statics.push("".to_string());
         }
-        last.dynamics
-            .push(DynamicRender::Nested(Rendered::default()));
+        // last.dynamics
+        // .push(DynamicRender::Nested(Rendered::default()));
         last.statics.push("".to_string());
     }
 
     fn push_if_frame(&mut self) {
+        println!("push if frame");
         let mut last = self.last_mut();
         last.nested = true;
         if last.statics.is_empty() {
@@ -99,6 +105,7 @@ impl RenderVisitor for Rendered {
     }
 
     fn pop(&mut self) {
+        println!("pop");
         let mut last = self.last_mut();
         last.nested = false;
         if last.statics.len() <= last.dynamics.len() {
@@ -231,6 +238,23 @@ mod template_tests {
             "#,
             json!({
                 "count": 0,
+            }),
+        );
+
+        assert_eq!(render.statics, Some(vec!["".to_string(), "".to_string()]));
+        assert_eq_dynamics!(render.dynamics, [DynamicRenderJson::String("".to_string())]);
+    }
+
+    #[lunatic::test]
+    fn template_with_for_loop() {
+        let render = render_template(
+            r#"
+                {%- for item in items -%}
+                    {{- item -}}
+                {%- endfor -%}
+            "#,
+            json!({
+                "items": [],
             }),
         );
 
@@ -439,5 +463,26 @@ mod template_diff_tests {
                 })
             )]
         );
+    }
+
+    #[lunatic::test]
+    fn template_with_for_loop() {
+        let render = render_template_diff(
+            r#"
+                {%- for item in items -%}
+                    {{- item -}}
+                {%- endfor -%}
+            "#,
+            json!({
+                "items": [],
+            }),
+            json!({
+                "items": ["Foo", "Bar", "Baz"],
+            }),
+        );
+
+        assert_eq!(render.statics, Some(vec!["".to_string(), "".to_string()]));
+        // assert_eq_dynamics!(render.dynamics,
+        // [DynamicRenderJson::String("".to_string())]);
     }
 }

@@ -1,161 +1,163 @@
-use serde::{Deserialize, Serialize};
-use submillisecond::{router, static_router, Application};
-use submillisecond_live_view::socket::Socket;
-use submillisecond_live_view::tera::{LiveViewContext, LiveViewTera};
-use submillisecond_live_view::{CheckboxValue, LiveView, LiveViewEvent};
-use uuid::Uuid;
+fn main() {}
 
-fn main() -> std::io::Result<()> {
-    LiveViewContext::init(b"some-secret-key", "templates/layout.html");
+// use serde::{Deserialize, Serialize};
+// use submillisecond::{router, static_router, Application};
+// use submillisecond_live_view::socket::Socket;
+// use submillisecond_live_view::tera::{LiveViewContext, LiveViewTera};
+// use submillisecond_live_view::{CheckboxValue, LiveView, LiveViewEvent};
+// use uuid::Uuid;
 
-    Application::new(router! {
-        "/" => LiveViewTera::<Todos>::route("templates/todos.html")
-        "/static" => static_router!("./static")
-    })
-    .serve("127.0.0.1:3000")
-}
+// fn main() -> std::io::Result<()> {
+//     LiveViewContext::init(b"some-secret-key", "templates/layout.html");
 
-#[derive(Clone, Serialize, Deserialize)]
-struct Todos {
-    filter: String,
-    todos: Vec<Todo>,
-}
+//     Application::new(router! {
+//         "/" => LiveViewTera::<Todos>::route("templates/todos.html")
+//         "/static" => static_router!("./static")
+//     })
+//     .serve("127.0.0.1:3000")
+// }
 
-#[derive(Clone, Serialize, Deserialize)]
-struct Todo {
-    id: Uuid,
-    title: String,
-    completed: bool,
-    editing: bool,
-}
+// #[derive(Clone, Serialize, Deserialize)]
+// struct Todos {
+//     filter: String,
+//     todos: Vec<Todo>,
+// }
 
-impl Todo {
-    fn new(title: String) -> Self {
-        Todo {
-            id: Uuid::new_v4(),
-            title,
-            completed: false,
-            editing: false,
-        }
-    }
-}
+// #[derive(Clone, Serialize, Deserialize)]
+// struct Todo {
+//     id: Uuid,
+//     title: String,
+//     completed: bool,
+//     editing: bool,
+// }
 
-impl LiveView for Todos {
-    type Events = (
-        Add,
-        Remove,
-        Toggle,
-        Edit,
-        ToggleEdit,
-        ClearCompleted,
-        SetFilter,
-    );
+// impl Todo {
+//     fn new(title: String) -> Self {
+//         Todo {
+//             id: Uuid::new_v4(),
+//             title,
+//             completed: false,
+//             editing: false,
+//         }
+//     }
+// }
 
-    fn mount(_socket: Option<&Socket>) -> Self {
-        Todos {
-            filter: "all".to_string(),
-            todos: vec![],
-        }
-    }
-}
+// impl LiveView for Todos {
+//     type Events = (
+//         Add,
+//         Remove,
+//         Toggle,
+//         Edit,
+//         ToggleEdit,
+//         ClearCompleted,
+//         SetFilter,
+//     );
 
-#[derive(Deserialize)]
-struct Add {
-    title: String,
-}
+//     fn mount(_socket: Option<&Socket>) -> Self {
+//         Todos {
+//             filter: "all".to_string(),
+//             todos: vec![],
+//         }
+//     }
+// }
 
-impl LiveViewEvent<Add> for Todos {
-    const NAME: &'static str = "add_todo";
+// #[derive(Deserialize)]
+// struct Add {
+//     title: String,
+// }
 
-    fn handle(state: &mut Self, event: Add, _event_type: String) {
-        state.todos.push(Todo::new(event.title));
-    }
-}
+// impl LiveViewEvent<Add> for Todos {
+//     const NAME: &'static str = "add_todo";
 
-#[derive(Deserialize)]
-struct Remove {
-    id: Uuid,
-}
+//     fn handle(state: &mut Self, event: Add, _event_type: String) {
+//         state.todos.push(Todo::new(event.title));
+//     }
+// }
 
-impl LiveViewEvent<Remove> for Todos {
-    const NAME: &'static str = "remove_todo";
+// #[derive(Deserialize)]
+// struct Remove {
+//     id: Uuid,
+// }
 
-    fn handle(state: &mut Self, event: Remove, _event_type: String) {
-        state.todos.retain(|todo| todo.id != event.id);
-    }
-}
+// impl LiveViewEvent<Remove> for Todos {
+//     const NAME: &'static str = "remove_todo";
 
-#[derive(Deserialize)]
-struct Toggle {
-    id: Uuid,
-    value: CheckboxValue,
-}
+//     fn handle(state: &mut Self, event: Remove, _event_type: String) {
+//         state.todos.retain(|todo| todo.id != event.id);
+//     }
+// }
 
-impl LiveViewEvent<Toggle> for Todos {
-    const NAME: &'static str = "toggle_todo";
+// #[derive(Deserialize)]
+// struct Toggle {
+//     id: Uuid,
+//     value: CheckboxValue,
+// }
 
-    fn handle(state: &mut Self, event: Toggle, _event_type: String) {
-        if let Some(todo) = state.todos.iter_mut().find(|todo| todo.id == event.id) {
-            todo.completed = event.value.is_checked();
-        }
-    }
-}
+// impl LiveViewEvent<Toggle> for Todos {
+//     const NAME: &'static str = "toggle_todo";
 
-#[derive(Deserialize)]
-struct Edit {
-    id: Uuid,
-    title: String,
-}
+//     fn handle(state: &mut Self, event: Toggle, _event_type: String) {
+//         if let Some(todo) = state.todos.iter_mut().find(|todo| todo.id ==
+// event.id) {             todo.completed = event.value.is_checked();
+//         }
+//     }
+// }
 
-impl LiveViewEvent<Edit> for Todos {
-    const NAME: &'static str = "edit_todo";
+// #[derive(Deserialize)]
+// struct Edit {
+//     id: Uuid,
+//     title: String,
+// }
 
-    fn handle(state: &mut Self, event: Edit, _event_type: String) {
-        if let Some(todo) = state.todos.iter_mut().find(|todo| todo.id == event.id) {
-            todo.title = event.title;
-            todo.editing = false;
-        }
-    }
-}
+// impl LiveViewEvent<Edit> for Todos {
+//     const NAME: &'static str = "edit_todo";
 
-#[derive(Deserialize)]
-struct ToggleEdit {
-    id: Uuid,
-    detail: u8,
-}
+//     fn handle(state: &mut Self, event: Edit, _event_type: String) {
+//         if let Some(todo) = state.todos.iter_mut().find(|todo| todo.id ==
+// event.id) {             todo.title = event.title;
+//             todo.editing = false;
+//         }
+//     }
+// }
 
-impl LiveViewEvent<ToggleEdit> for Todos {
-    const NAME: &'static str = "toggle_edit_todo";
+// #[derive(Deserialize)]
+// struct ToggleEdit {
+//     id: Uuid,
+//     detail: u8,
+// }
 
-    fn handle(state: &mut Self, event: ToggleEdit, _event_type: String) {
-        if event.detail == 2 {
-            if let Some(todo) = state.todos.iter_mut().find(|todo| todo.id == event.id) {
-                todo.editing = true;
-            }
-        }
-    }
-}
+// impl LiveViewEvent<ToggleEdit> for Todos {
+//     const NAME: &'static str = "toggle_edit_todo";
 
-#[derive(Deserialize)]
-struct ClearCompleted {}
+//     fn handle(state: &mut Self, event: ToggleEdit, _event_type: String) {
+//         if event.detail == 2 {
+//             if let Some(todo) = state.todos.iter_mut().find(|todo| todo.id ==
+// event.id) {                 todo.editing = true;
+//             }
+//         }
+//     }
+// }
 
-impl LiveViewEvent<ClearCompleted> for Todos {
-    const NAME: &'static str = "clear_completed_todos";
+// #[derive(Deserialize)]
+// struct ClearCompleted {}
 
-    fn handle(state: &mut Self, _event: ClearCompleted, _event_type: String) {
-        state.todos.retain(|todo| !todo.completed);
-    }
-}
+// impl LiveViewEvent<ClearCompleted> for Todos {
+//     const NAME: &'static str = "clear_completed_todos";
 
-#[derive(Deserialize)]
-struct SetFilter {
-    filter: String,
-}
+//     fn handle(state: &mut Self, _event: ClearCompleted, _event_type: String)
+// {         state.todos.retain(|todo| !todo.completed);
+//     }
+// }
 
-impl LiveViewEvent<SetFilter> for Todos {
-    const NAME: &'static str = "set_filter";
+// #[derive(Deserialize)]
+// struct SetFilter {
+//     filter: String,
+// }
 
-    fn handle(state: &mut Self, event: SetFilter, _event_type: String) {
-        state.filter = event.filter;
-    }
-}
+// impl LiveViewEvent<SetFilter> for Todos {
+//     const NAME: &'static str = "set_filter";
+
+//     fn handle(state: &mut Self, event: SetFilter, _event_type: String) {
+//         state.filter = event.filter;
+//     }
+// }

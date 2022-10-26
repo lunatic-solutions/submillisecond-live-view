@@ -12,6 +12,7 @@ use super::Rendered;
 pub struct RenderedJson {
     pub statics: Option<Vec<String>>,
     pub dynamics: HashMap<usize, DynamicRenderJson>,
+    pub placeholders: HashMap<usize, DynamicRenderJson>,
 }
 
 impl RenderedJson {
@@ -86,6 +87,7 @@ impl From<Rendered> for RenderedJson {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum DynamicRenderJson {
     String(String),
+    Array(Vec),
     Nested(RenderedJson),
 }
 
@@ -93,6 +95,7 @@ impl From<DynamicRender> for DynamicRenderJson {
     fn from(dynamic_render: DynamicRender) -> Self {
         match dynamic_render {
             DynamicRender::String(s) => DynamicRenderJson::String(s),
+            DynamicRender::Array(items) => DynamicRenderJson::Array(items),
             DynamicRender::Nested(rendered) => DynamicRenderJson::Nested(rendered.into()),
         }
     }

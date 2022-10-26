@@ -1,11 +1,14 @@
 pub mod csrf;
 pub mod handler;
 pub mod manager;
+pub mod maud;
+pub mod rendered;
 pub mod socket;
-pub mod tera;
+// pub mod tera;
 
+use rendered::Rendered;
 use serde::{Deserialize, Serialize};
-use socket::{Event, Socket};
+use socket::Event;
 use submillisecond::response::Response;
 use submillisecond::RequestContext;
 use thiserror::Error;
@@ -14,7 +17,9 @@ use thiserror::Error;
 pub trait LiveView: Sized {
     type Events: EventList<Self>;
 
-    fn mount(socket: Option<&Socket>) -> Self;
+    fn render(&self) -> Rendered;
+
+    fn mount() -> Self;
 
     fn not_found(_req: RequestContext) -> Response {
         submillisecond::defaults::err_404()
