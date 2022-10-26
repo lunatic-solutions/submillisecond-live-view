@@ -21,6 +21,14 @@ pub trait LiveView: Sized {
 
     fn mount() -> Self;
 
+    fn styles() -> &'static [&'static str] {
+        &[]
+    }
+
+    fn scripts() -> &'static [&'static str] {
+        &[]
+    }
+
     fn not_found(_req: RequestContext) -> Response {
         submillisecond::defaults::err_404()
     }

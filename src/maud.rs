@@ -67,6 +67,9 @@ where
         let session_str = session.sign_with_key(&key).expect("failed to sign session");
 
         let content = T::mount().render().to_string();
+        for style in T::styles() {
+            println!(">>>>>>> {style}");
+        }
         let body = html! {
             (DOCTYPE)
             html lang="en" {
@@ -76,7 +79,13 @@ where
                     meta name="viewport" content="width=device-width, initial-scale=1.0";
                     meta name="csrf-token" content=(csrf_token);
                     title { "submillisecond live view" }
+                    @for style in T::styles() {
+                        link rel="stylesheet" href=(style);
+                    }
                     script defer type="text/javascript" src="/static/main.js" {}
+                    @for script in T::scripts() {
+                        script defer type="text/javascript" src=(script) {}
+                    }
                 }
                 body {
                     div data-phx-main="true" data-phx-static="" data-phx-session=(session_str) id=(id) {
@@ -85,6 +94,31 @@ where
                 }
             }
         };
+//         let body = {
+//             extern crate alloc;
+//             extern crate maud;
+//             let mut __maud_output = submillisecond_live_view::rendered::Rendered::builder();
+//             __maud_output.push_dynamic(maud::Render::render(&DOCTYPE).into_string());
+//             __maud_output.push_static("<html lang=\"en\"><head><meta charset=\"utf-8\"><meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><meta name=\"csrf-token\" content=\"");
+//             __maud_output.push_dynamic(maud::Render::render(&csrf_token).into_string());
+//             __maud_output.push_static("\"><title>submillisecond live view</title>");
+//             for style in T::styles() {
+//                 __maud_output.push_static("<link rel=\"stylesheet\" href=\"");
+//                 __maud_output.push_dynamic(maud::Render::render(&style).into_string());
+//                 __maud_output.push_static("\">");
+//             }
+//             __maud_output.push_static("<script defer type=\"text/javascript\" src=\"/static/main.js\"></script></head><body><div data-phx-main=\"true\" data-phx-static=\"\" data-phx-session=\"");
+//             __maud_output.push_dynamic(maud::Render::render(&session_str).into_string());
+      //             __maud_output.push_static("\" id=\"");
+//             __maud_output.push_dynamic(maud::Render::render(&id).into_string());
+//             __maud_output.push_static("\">");
+//             __maud_output.push_dynamic(maud::Render::render(&PreEscaped(content)).into_string());
+//             __maud_output.push_static("</div></body></html>");
+//             __maud_output.build()
+//         }
+// ;        
+
+        println!("{body}");
 
         Response::builder()
             .header("Content-Type", "text/html; charset=UTF-8")
@@ -101,10 +135,13 @@ where
         let secret = live_view_context.secret();
 
         let key: Hmac<Sha256> = Hmac::new_from_slice(&secret).expect("unable to encode secret");
-        let session: Session = event.session.verify_with_key(&key).expect("nope!");
+        let session: Result<Session, _> = event.session.verify_with_key(&key);
 
         // Verify csrf token
-        if session.csrf_token != event.params.csrf_token {
+        if !session
+            .map(|session| session.csrf_token == event.params.csrf_token)
+            .unwrap_or(false)
+        {
             return LiveViewManagerResult::FatalError(LiveViewMaudError::InvalidCsrfToken);
         }
 

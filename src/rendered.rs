@@ -290,8 +290,21 @@ impl RenderedBuilder {
         last.statics.push("".to_string());
     }
 
-    pub fn pop_if_frame(&mut self) {
-        // dbg!("pop_if_frame");
+    pub fn push_for_frame(&mut self) {
+        // dbg!("push_for_frame");
+
+        let mut last = self.last_mut();
+        last.nested = true;
+        if last.statics.is_empty() {
+            last.statics.push("".to_string());
+        }
+        last.dynamics
+            .push(Dynamic::Nested(RenderedBuilder::default()));
+        last.statics.push("".to_string());
+    }
+
+    pub fn pop_frame(&mut self) {
+        // dbg!("pop_frame");
 
         let mut last = self.last_mut();
         last.nested = false;
