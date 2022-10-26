@@ -1,5 +1,6 @@
 use maud::html;
 use serde::{Deserialize, Serialize};
+use submillisecond::http::Uri;
 use submillisecond::{router, static_router, Application};
 use submillisecond_live_view::maud::{LiveViewContext, LiveViewMaud};
 use submillisecond_live_view::rendered::Rendered;
@@ -40,7 +41,7 @@ impl LiveView for Counter {
         }
     }
 
-    fn mount() -> Self {
+    fn mount(_uri: Uri) -> Self {
         Counter { count: 0 }
     }
 }

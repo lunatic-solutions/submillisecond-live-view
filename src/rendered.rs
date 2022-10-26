@@ -248,6 +248,22 @@ impl RenderedBuilder {
         }
     }
 
+    pub fn push_nested(&mut self, nested: Rendered) {
+        // dbg!("push_nested", &nested);
+
+        let last = self.last_mut();
+        let nested: RenderedBuilder = nested.into();
+        let mut statics = nested.statics.into_iter();
+        if let Some(first_static) = statics.next() {
+            match last.statics.last_mut() {
+                Some(static_string) => static_string.push_str(&first_static),
+                None => last.statics.push(first_static),
+            }
+            last.statics.extend(statics);
+        }
+        last.dynamics.extend(nested.dynamics);
+    }
+
     pub fn push_static(&mut self, s: &str) {
         // dbg!("push_static", &s);
 
@@ -317,6 +333,23 @@ impl RenderedBuilder {
         last.nested = false;
         if last.statics.len() <= last.dynamics.len() {
             last.statics.push("".to_string());
+        }
+    }
+}
+
+impl From<Rendered> for RenderedBuilder {
+    fn from(rendered: Rendered) -> Self {
+        RenderedBuilder {
+            statics: rendered.statics,
+            dynamics: rendered
+                .dynamics
+                .into_iter()
+                .map(|d| match d {
+                    Dynamic::String(s) => Dynamic::String(s),
+                    Dynamic::Nested(n) => Dynamic::Nested(n.into()),
+                })
+                .collect(),
+            nested: false,
         }
     }
 }

@@ -9,6 +9,7 @@ pub mod socket;
 use rendered::Rendered;
 use serde::{Deserialize, Serialize};
 use socket::Event;
+use submillisecond::http::Uri;
 use submillisecond::response::Response;
 use submillisecond::RequestContext;
 use thiserror::Error;
@@ -19,7 +20,7 @@ pub trait LiveView: Sized {
 
     fn render(&self) -> Rendered;
 
-    fn mount() -> Self;
+    fn mount(uri: Uri) -> Self;
 
     fn styles() -> &'static [&'static str] {
         &[]
@@ -122,5 +123,11 @@ impl CheckboxValue {
             CheckboxValue::Checked => true,
             CheckboxValue::Unchecked => false,
         }
+    }
+}
+
+impl Default for CheckboxValue {
+    fn default() -> Self {
+        CheckboxValue::Unchecked
     }
 }

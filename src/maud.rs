@@ -11,6 +11,7 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::Sha256;
+use submillisecond::http::Uri;
 use submillisecond::response::Response;
 use submillisecond::RequestContext;
 use thiserror::Error;
@@ -46,7 +47,7 @@ where
     type Reply = Value;
     type Error = LiveViewMaudError;
 
-    fn handle_request(&self, _req: RequestContext) -> Response {
+    fn handle_request(&self, req: RequestContext) -> Response {
         let mut rng = rand::thread_rng();
         let id: String = (&mut rng)
             .sample_iter(Alphanumeric)
@@ -66,10 +67,8 @@ where
         };
         let session_str = session.sign_with_key(&key).expect("failed to sign session");
 
-        let content = T::mount().render().to_string();
-        for style in T::styles() {
-            println!(">>>>>>> {style}");
-        }
+        let content = T::mount(req.uri().clone()).render().to_string();
+
         let body = html! {
             (DOCTYPE)
             html lang="en" {
@@ -94,31 +93,6 @@ where
                 }
             }
         };
-//         let body = {
-//             extern crate alloc;
-//             extern crate maud;
-//             let mut __maud_output = submillisecond_live_view::rendered::Rendered::builder();
-//             __maud_output.push_dynamic(maud::Render::render(&DOCTYPE).into_string());
-//             __maud_output.push_static("<html lang=\"en\"><head><meta charset=\"utf-8\"><meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><meta name=\"csrf-token\" content=\"");
-//             __maud_output.push_dynamic(maud::Render::render(&csrf_token).into_string());
-//             __maud_output.push_static("\"><title>submillisecond live view</title>");
-//             for style in T::styles() {
-//                 __maud_output.push_static("<link rel=\"stylesheet\" href=\"");
-//                 __maud_output.push_dynamic(maud::Render::render(&style).into_string());
-//                 __maud_output.push_static("\">");
-//             }
-//             __maud_output.push_static("<script defer type=\"text/javascript\" src=\"/static/main.js\"></script></head><body><div data-phx-main=\"true\" data-phx-static=\"\" data-phx-session=\"");
-//             __maud_output.push_dynamic(maud::Render::render(&session_str).into_string());
-      //             __maud_output.push_static("\" id=\"");
-//             __maud_output.push_dynamic(maud::Render::render(&id).into_string());
-//             __maud_output.push_static("\">");
-//             __maud_output.push_dynamic(maud::Render::render(&PreEscaped(content)).into_string());
-//             __maud_output.push_static("</div></body></html>");
-//             __maud_output.build()
-//         }
-// ;        
-
-        println!("{body}");
 
         Response::builder()
             .header("Content-Type", "text/html; charset=UTF-8")
@@ -145,7 +119,22 @@ where
             return LiveViewManagerResult::FatalError(LiveViewMaudError::InvalidCsrfToken);
         }
 
-        let live_view = T::mount();
+        macro_rules! tri_fatal {
+            ($e: expr) => {
+                match $e {
+                    Result::Ok(ok) => ok,
+                    Err(err) => {
+                        return LiveViewManagerResult::FatalError(err);
+                    }
+                }
+            };
+        }
+
+        let uri: Uri = tri_fatal!(tri_fatal!(event.url().ok_or(LiveViewMaudError::MissingUrl))
+            .parse()
+            .map_err(|_| LiveViewMaudError::InvalidUrl));
+
+        let live_view = T::mount(uri);
         let state = live_view.render();
         let reply = json!({ "rendered": state.clone().into_json() });
         LiveViewManagerResult::Ok(Join {
@@ -207,4 +196,8 @@ struct Session {
 pub enum LiveViewMaudError {
     #[error("invalid csrf token")]
     InvalidCsrfToken,
+    #[error("invalid url")]
+    InvalidUrl,
+    #[error("missing url")]
+    MissingUrl,
 }
