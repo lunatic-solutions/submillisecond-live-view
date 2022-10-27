@@ -26,10 +26,10 @@ impl LiveView for Counter {
 
     fn render(&self) -> Rendered {
         html! {
-            button phx-click="increment" {
+            button :id=(1) @click=(Increment) {
                 "Increment"
             }
-            button phx-click="decrement" {
+            button @click=(Decrement) {
                 "Decrement"
             }
             p {
@@ -50,8 +50,6 @@ impl LiveView for Counter {
 struct Increment {}
 
 impl LiveViewEvent<Increment> for Counter {
-    const NAME: &'static str = "increment";
-
     fn handle(state: &mut Self, _event: Increment, _event_type: String) {
         state.count += 1;
     }
@@ -61,8 +59,6 @@ impl LiveViewEvent<Increment> for Counter {
 struct Decrement {}
 
 impl LiveViewEvent<Decrement> for Counter {
-    const NAME: &'static str = "decrement";
-
     fn handle(state: &mut Self, _event: Decrement, _event_type: String) {
         state.count -= 1;
     }

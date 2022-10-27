@@ -9,17 +9,19 @@ A live-view implementation for the [submillisecond] web framework built with [lu
 # Code example
 
 ```rust
+use maud::html;
 use serde::{Deserialize, Serialize};
+use submillisecond::http::Uri;
 use submillisecond::{router, static_router, Application};
-use subview::socket::Socket;
-use subview::tera::{LiveViewContext, LiveViewTera};
-use subview::{LiveView, LiveViewEvent};
+use submillisecond_live_view::maud::{LiveViewContext, LiveViewMaud};
+use submillisecond_live_view::rendered::Rendered;
+use submillisecond_live_view::{LiveView, LiveViewEvent};
 
 fn main() -> std::io::Result<()> {
-    LiveViewContext::init(b"some-secret-key", "templates/layout.html");
+    LiveViewContext::init(b"some-secret-key");
 
     Application::new(router! {
-        "/" => LiveViewTera::<Counter>::route("templates/index.html")
+        "/" => LiveViewMaud::<Counter>::route()
         "/static" => static_router!("./static")
     })
     .serve("127.0.0.1:3000")
@@ -31,9 +33,26 @@ struct Counter {
 }
 
 impl LiveView for Counter {
-    type Events = (Increment,);
+    type Events = (Increment, Decrement);
 
-    fn mount(_socket: Option<&Socket>) -> Self {
+    fn render(&self) -> Rendered {
+        html! {
+            button phx-click="increment" {
+                "Increment"
+            }
+            button phx-click="decrement" {
+                "Decrement"
+            }
+            p {
+                "Count is " (self.count)
+            }
+            @if self.count >= 5 {
+                p { "Count is high!" }
+            }
+        }
+    }
+
+    fn mount(_uri: Uri) -> Self {
         Counter { count: 0 }
     }
 }
@@ -49,6 +68,16 @@ impl LiveViewEvent<Increment> for Counter {
     }
 }
 
+#[derive(Deserialize)]
+struct Decrement {}
+
+impl LiveViewEvent<Decrement> for Counter {
+    const NAME: &'static str = "decrement";
+
+    fn handle(state: &mut Self, _event: Decrement, _event_type: String) {
+        state.count -= 1;
+    }
+}
 ```
 
 ## Getting started with submillisecond-live-view

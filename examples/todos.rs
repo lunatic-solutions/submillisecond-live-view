@@ -34,9 +34,9 @@ impl Todos {
                     autocapitalize="off"
                     autocomplete="off"
                     autocorrect="off"
-                    phx-submit="add_todo"
                     spellcheck="false"
                     url="#"
+                    @submit=(Add)
                 {
                     i {
                         input #newtodo_text .new-todo autofocus name="title" placeholder="What needs to be done?" type="text";
@@ -67,21 +67,28 @@ impl Todos {
                             (false, false) => "",
                         };
                         li class=(classes) {
+                            @let id = todo.id.to_string();
                             form
-                                phx-submit="edit_todo"
                                 method="post"
                                 autocapitalize="off"
                                 autocomplete="off"
                                 autocorrect="off"
                                 spellcheck="false"
                                 url="#"
+                                @submit=(Edit)
                             {
                                 div.view {
-                                    input.toggle type="checkbox" phx-click="toggle_todo" phx-value-id=(todo.id.to_string()) checked[todo.completed];
-                                    label phx-click="toggle_edit_todo" phx-value-id=(todo.id.to_string()) { (todo.title) }
-                                    button.destroy phx-click="remove_todo" phx-value-id=(todo.id.to_string()) type="button" {}
+                                    input.toggle
+                                        type="checkbox"
+                                        checked[todo.completed]
+                                        :id=(id)
+                                        @click=(ToggleEdit);
+                                    label :id=(id) @click=(ToggleEdit) {
+                                        (todo.title)
+                                    }
+                                    button.destroy :id=(id) type="button" @click=(Remove) {}
                                 }
-                                input type="hidden" name="id" value=(todo.id.to_string());
+                                input type="hidden" name="id" value=(id);
                                 input.edit name="title" value=(todo.title);
                             }
                         }
@@ -114,7 +121,12 @@ impl Todos {
                         li {
                             @let selected_class = if selected { "selected" } else { "" };
                             @let filter_value = serde_json::to_string(&filter).unwrap();
-                            a class=(selected_class) phx-click="set_filter" phx-value-filter=(filter_value.trim_matches('"')) href={"#/" (label)} {
+                            a
+                                class=(selected_class)
+                                href={"#/" (label)}
+                                :filter=(filter_value.trim_matches('"'))
+                                @click=(SetFilter)
+                            {
                                 (label)
                             }
                         }
@@ -122,7 +134,7 @@ impl Todos {
                 }
 
                 @if remaining_todos > 0 {
-                    button.clear-completed phx-click="clear_completed_todos" { "Clear completed" }
+                    button.clear-completed @click=(ClearCompleted) { "Clear completed" }
                 }
             }
 
@@ -202,8 +214,6 @@ struct Add {
 }
 
 impl LiveViewEvent<Add> for Todos {
-    const NAME: &'static str = "add_todo";
-
     fn handle(state: &mut Self, event: Add, _event_type: String) {
         state.todos.push(Todo::new(event.title));
     }
@@ -215,8 +225,6 @@ struct Remove {
 }
 
 impl LiveViewEvent<Remove> for Todos {
-    const NAME: &'static str = "remove_todo";
-
     fn handle(state: &mut Self, event: Remove, _event_type: String) {
         state.todos.retain(|todo| todo.id != event.id);
     }
@@ -230,8 +238,6 @@ struct Toggle {
 }
 
 impl LiveViewEvent<Toggle> for Todos {
-    const NAME: &'static str = "toggle_todo";
-
     fn handle(state: &mut Self, event: Toggle, _event_type: String) {
         if let Some(todo) = state.todos.iter_mut().find(|todo| todo.id == event.id) {
             todo.completed = event.value.is_checked();
@@ -246,8 +252,6 @@ struct Edit {
 }
 
 impl LiveViewEvent<Edit> for Todos {
-    const NAME: &'static str = "edit_todo";
-
     fn handle(state: &mut Self, event: Edit, _event_type: String) {
         if let Some(todo) = state.todos.iter_mut().find(|todo| todo.id == event.id) {
             todo.title = event.title;
@@ -263,8 +267,6 @@ struct ToggleEdit {
 }
 
 impl LiveViewEvent<ToggleEdit> for Todos {
-    const NAME: &'static str = "toggle_edit_todo";
-
     fn handle(state: &mut Self, event: ToggleEdit, _event_type: String) {
         if event.detail == 2 {
             if let Some(todo) = state.todos.iter_mut().find(|todo| todo.id == event.id) {
@@ -278,8 +280,6 @@ impl LiveViewEvent<ToggleEdit> for Todos {
 struct ClearCompleted {}
 
 impl LiveViewEvent<ClearCompleted> for Todos {
-    const NAME: &'static str = "clear_completed_todos";
-
     fn handle(state: &mut Self, _event: ClearCompleted, _event_type: String) {
         state.todos.retain(|todo| !todo.completed);
     }
@@ -291,8 +291,6 @@ struct SetFilter {
 }
 
 impl LiveViewEvent<SetFilter> for Todos {
-    const NAME: &'static str = "set_filter";
-
     fn handle(state: &mut Self, event: SetFilter, _event_type: String) {
         state.filter = event.filter;
     }

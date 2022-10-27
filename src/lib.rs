@@ -4,7 +4,6 @@ pub mod manager;
 pub mod maud;
 pub mod rendered;
 pub mod socket;
-// pub mod tera;
 
 use rendered::Rendered;
 use serde::{Deserialize, Serialize};
@@ -37,8 +36,6 @@ pub trait LiveView: Sized {
 
 /// Live view event handler.
 pub trait LiveViewEvent<E> {
-    const NAME: &'static str;
-
     fn handle(state: &mut Self, event: E, event_type: String);
 }
 
@@ -72,7 +69,7 @@ macro_rules! impl_event_list {
         {
             fn handle_event(state: &mut T, event: Event) -> Result<bool, DeserializeEventError> {
                 $(
-                    if <T as LiveViewEvent<$t>>::NAME == event.name {
+                    if std::any::type_name::<$t>() == event.name {
                         let value: $t = if event.ty == "form" {
                             match event.value.as_str() {
                                 Some(value) => serde_qs::from_str(value)?,
