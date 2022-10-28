@@ -52,6 +52,22 @@ pub enum DeserializeEventError {
     Json(#[from] serde_json::Error),
 }
 
+#[cfg(debug_assertions)]
+fn check_for_unit_struct<T>()
+where
+    T: for<'de> Deserialize<'de>,
+{
+    if serde_json::from_str::<T>("null").is_ok() {
+        lunatic_log::error!(
+            "unit structs are not supported as events. Change your event struct to be `{} {{}}`",
+            std::any::type_name::<T>()
+        );
+    }
+}
+
+#[cfg(not(debug_assertions))]
+fn check_for_unit_struct<T>() {}
+
 macro_rules! impl_event_list {
     ($( $t: ident ),*) => {
         impl<T, $( $t ),*> EventList<T> for ($( $t, )*)
@@ -66,7 +82,13 @@ macro_rules! impl_event_list {
                     if std::any::type_name::<$t>() == event.name {
                         let value: $t = if event.ty == "form" {
                             match event.value.as_str() {
-                                Some(value) => serde_qs::from_str(value)?,
+                                Some(value) => match serde_qs::from_str(value) {
+                                    Ok(value) => value,
+                                    Err(err) => {
+                                        check_for_unit_struct::<$t>();
+                                        return Err(DeserializeEventError::Form(err));
+                                    }
+                                }
                                 None => {
                                     return Err(DeserializeEventError::Form(serde_qs::Error::Custom(
                                         "expected value to be string in form event".to_string(),
@@ -74,7 +96,13 @@ macro_rules! impl_event_list {
                                 }
                             }
                         } else {
-                            serde_json::from_value(event.value)?
+                            match serde_json::from_value(event.value) {
+                                Ok(value) => value,
+                                Err(err) => {
+                                    check_for_unit_struct::<$t>();
+                                    return Err(DeserializeEventError::Json(err));
+                                }
+                            }
                         };
                         T::handle(state, value, event.ty);
                         return Ok(true);
