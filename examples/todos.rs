@@ -1,17 +1,14 @@
-use maud::html;
 use serde::{Deserialize, Serialize};
 use submillisecond::http::Uri;
 use submillisecond::{router, static_router, Application};
-use submillisecond_live_view::maud::{LiveViewContext, LiveViewMaud};
+use submillisecond_live_view::handler::LiveViewRouter;
 use submillisecond_live_view::rendered::Rendered;
-use submillisecond_live_view::{CheckboxValue, LiveView, LiveViewEvent};
+use submillisecond_live_view::{html, CheckboxValue, LiveView, LiveViewEvent};
 use uuid::Uuid;
 
 fn main() -> std::io::Result<()> {
-    LiveViewContext::init(b"some-secret-key");
-
     Application::new(router! {
-        "/" => LiveViewMaud::<Todos>::route()
+        "/" => Todos::handler()
         "/static" => static_router!("./static")
     })
     .serve("127.0.0.1:3000")

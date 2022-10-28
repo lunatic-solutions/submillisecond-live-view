@@ -1,16 +1,10 @@
-use maud::html;
 use serde::{Deserialize, Serialize};
-use submillisecond::http::Uri;
 use submillisecond::{router, static_router, Application};
-use submillisecond_live_view::maud::{LiveViewContext, LiveViewMaud};
-use submillisecond_live_view::rendered::Rendered;
-use submillisecond_live_view::{LiveView, LiveViewEvent};
+use submillisecond_live_view::prelude::*;
 
 fn main() -> std::io::Result<()> {
-    LiveViewContext::init(b"some-secret-key");
-
     Application::new(router! {
-        "/" => LiveViewMaud::<Counter>::route()
+        "/" => Counter::handler()
         "/static" => static_router!("./static")
     })
     .serve("127.0.0.1:3000")
@@ -26,15 +20,9 @@ impl LiveView for Counter {
 
     fn render(&self) -> Rendered {
         html! {
-            button :id=(1) @click=(Increment) {
-                "Increment"
-            }
-            button @click=(Decrement) {
-                "Decrement"
-            }
-            p {
-                "Count is " (self.count)
-            }
+            button :id=(1) @click=(Increment) { "Increment" }
+            button @click=(Decrement) { "Decrement" }
+            p { "Count is " (self.count) }
             @if self.count >= 5 {
                 p { "Count is high!" }
             }

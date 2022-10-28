@@ -10,8 +10,24 @@ use submillisecond::websocket::WebSocket;
 use submillisecond::{Handler, RequestContext};
 
 use crate::manager::{Join, LiveViewManager, LiveViewManagerResult};
+use crate::maud::LiveViewMaud;
 use crate::socket::{Message, ProtocolEvent, Socket, SocketError, SocketMessage};
 use crate::{EventList, LiveView};
+
+type Manager<T> = LiveViewMaud<T>;
+
+pub trait LiveViewRouter: Sized {
+    fn handler() -> LiveViewHandler<Manager<Self>, Self>;
+}
+
+impl<T> LiveViewRouter for T
+where
+    T: LiveView,
+{
+    fn handler() -> LiveViewHandler<Manager<Self>, Self> {
+        LiveViewHandler::new(Manager::default())
+    }
+}
 
 pub struct LiveViewHandler<L, T> {
     live_view: L,

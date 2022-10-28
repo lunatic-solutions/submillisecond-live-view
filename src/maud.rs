@@ -1,11 +1,11 @@
+use std::borrow::Cow;
+use std::env;
 use std::marker::PhantomData;
 
+use const_random::const_random;
 use hmac::{Hmac, Mac};
 use jwt::{SignWithKey, VerifyWithKey};
-use lunatic::abstract_process;
-use lunatic::process::{ProcessRef, StartProcess};
 use lunatic_log::error;
-use maud::{html, PreEscaped, DOCTYPE};
 use rand::distributions::Alphanumeric;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -17,25 +17,32 @@ use submillisecond::RequestContext;
 use thiserror::Error;
 
 use crate::csrf::CsrfToken;
-use crate::handler::LiveViewHandler;
 use crate::manager::{Join, LiveViewManager, LiveViewManagerResult};
 use crate::rendered::{DiffRender, IntoJson, Rendered};
 use crate::socket::{Event, JoinEvent};
-use crate::{self as submillisecond_live_view, LiveView};
+use crate::{self as submillisecond_live_view, html, LiveView, PreEscaped, DOCTYPE};
 
-const LIVE_VIEW_CONTEXT_ID: &str = "live_view_context-699a5452-a8c9-413e-a77f-068736b37783";
-
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize)]
+#[serde(bound = "")]
 pub struct LiveViewMaud<T> {
     phantom: PhantomData<T>,
 }
 
-impl<T> LiveViewMaud<T> {
-    /// Register a template with a live view.
-    pub fn route() -> LiveViewHandler<Self, T> {
-        LiveViewHandler::new(LiveViewMaud {
+impl<T> Clone for LiveViewMaud<T> {
+    fn clone(&self) -> Self {
+        Self {
+            phantom: self.phantom,
+        }
+    }
+}
+
+impl<T> Copy for LiveViewMaud<T> {}
+
+impl<T> Default for LiveViewMaud<T> {
+    fn default() -> Self {
+        Self {
             phantom: PhantomData,
-        })
+        }
     }
 }
 
@@ -55,11 +62,7 @@ where
             .map(char::from)
             .collect();
 
-        let live_view_context = ProcessRef::<LiveViewContext>::lookup(LIVE_VIEW_CONTEXT_ID)
-            .expect("live view context not initialized");
-        let secret = live_view_context.secret();
-
-        let key: Hmac<Sha256> = Hmac::new_from_slice(&secret).expect("unable to encode secret");
+        let key: Hmac<Sha256> = Hmac::new_from_slice(&secret()).expect("unable to encode secret");
 
         let csrf_token = CsrfToken::generate().masked;
         let session = Session {
@@ -104,11 +107,7 @@ where
         &self,
         event: JoinEvent,
     ) -> LiveViewManagerResult<Join<T, Self::State, Self::Reply>, Self::Error> {
-        let live_view_context = ProcessRef::<LiveViewContext>::lookup(LIVE_VIEW_CONTEXT_ID)
-            .expect("live view context not initialized");
-        let secret = live_view_context.secret();
-
-        let key: Hmac<Sha256> = Hmac::new_from_slice(&secret).expect("unable to encode secret");
+        let key: Hmac<Sha256> = Hmac::new_from_slice(&secret()).expect("unable to encode secret");
         let session: Result<Session, _> = event.session.verify_with_key(&key);
 
         // Verify csrf token
@@ -158,35 +157,6 @@ where
     }
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct LiveViewContext {
-    secret: Vec<u8>,
-}
-
-impl LiveViewContext {
-    pub fn init(secret: &[u8]) -> ProcessRef<LiveViewContext> {
-        LiveViewContext::start(
-            LiveViewContext {
-                secret: secret.into(),
-            },
-            Some(LIVE_VIEW_CONTEXT_ID),
-        )
-    }
-}
-
-#[abstract_process]
-impl LiveViewContext {
-    #[init]
-    fn initialize(_: ProcessRef<Self>, ctx: Self) -> Self {
-        ctx
-    }
-
-    #[handle_request]
-    fn secret(&self) -> Vec<u8> {
-        self.secret.clone()
-    }
-}
-
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 struct Session {
     csrf_token: String,
@@ -200,4 +170,13 @@ pub enum LiveViewMaudError {
     InvalidUrl,
     #[error("missing url")]
     MissingUrl,
+}
+
+const SECRET_DEFAULT: [u8; 32] = const_random!([u8; 32]);
+
+fn secret() -> Cow<'static, [u8]> {
+    match env::var("LIVE_VIEW_SECRET") {
+        Ok(secret) => Cow::Owned(secret.into_bytes()),
+        Err(_) => Cow::Borrowed(&SECRET_DEFAULT),
+    }
 }

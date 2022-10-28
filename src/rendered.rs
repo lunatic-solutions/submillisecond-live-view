@@ -316,14 +316,10 @@ impl RenderedBuilder {
         } else {
             last.dynamics.push(Dynamic::String(s));
             last.statics.push(String::new());
+            if last.statics.len() <= last.dynamics.len() {
+                last.statics.push(String::new());
+            }
         }
-        // if last.statics.is_empty() {
-        //     last.statics.push(String::new());
-        // }
-
-        // if last.statics.len() <= last.dynamics.len() {
-        //     last.statics.push(String::new());
-        // }
     }
 
     pub fn push_if_frame(&mut self) {
@@ -334,7 +330,6 @@ impl RenderedBuilder {
         if last.statics.is_empty() {
             last.statics.push(String::new());
         }
-        // last.statics.push(String::new());
     }
 
     pub fn push_for_frame(&mut self) {
@@ -352,16 +347,6 @@ impl RenderedBuilder {
         println!("pop_frame");
 
         let last = self.last_mut();
-        // if last.nested && last.dynamics.is_empty() {
-        // last.dynamics.push(Dynamic::Nested(RenderedBuilder {
-        //     statics: vec![String::new(), String::new()],
-        //     dynamics: vec![Dynamic::String(s)],
-        //     nested: false,
-        // }));
-        // }
-        // if last.dynamics.is_empty() {
-        //     last.dynamics.push(Dynamic::String(String::new()));
-        // }
         if last.statics.len() <= last.dynamics.len() {
             last.statics.push(String::new());
         }
@@ -394,217 +379,5 @@ impl From<Rendered> for RenderedBuilder {
                 .collect(),
             nested: false,
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use maud::html;
-
-    use crate::rendered::{Dynamic, Rendered};
-    use crate::{self as submillisecond_live_view};
-
-    #[lunatic::test]
-    fn basic() {
-        let rendered = html! {
-            p { "Hello, world!" }
-        };
-
-        assert_eq!(rendered.statics, ["<p>Hello, world!</p>"]);
-        assert_eq!(rendered.dynamics, []);
-    }
-
-    #[lunatic::test]
-    fn dynamic() {
-        let rendered = html! {
-            a href={ ("hey") "/lambda-fairy/maud" } {
-                "Hello, world!"
-            }
-        };
-
-        assert_eq!(
-            rendered.statics,
-            ["<a href=\"", "/lambda-fairy/maud\">Hello, world!</a>"]
-        );
-        assert_eq!(rendered.dynamics, [Dynamic::String("hey".to_string())]);
-    }
-
-    #[lunatic::test]
-    fn if_statement_false() {
-        let foo = false;
-        let rendered = html! {
-            "Welcome "
-            @if foo {
-                "person"
-            }
-            "."
-        };
-
-        dbg!(&rendered);
-
-        assert_eq!(rendered.statics, ["Welcome ", "."]);
-        assert_eq!(rendered.dynamics, [Dynamic::String("".to_string())]);
-
-        let foo = false;
-        let rendered = html! {
-            "Welcome "
-            @if foo {
-                (foo.to_string())
-            }
-            "."
-        };
-
-        dbg!(&rendered);
-
-        assert_eq!(rendered.statics, ["Welcome ", "."]);
-        assert_eq!(rendered.dynamics, [Dynamic::String("".to_string())]);
-    }
-
-    #[lunatic::test]
-    fn if_statement_true() {
-        let foo = true;
-        let rendered = html! {
-            "Welcome "
-            @if foo {
-                "person"
-            }
-            "."
-        };
-
-        assert_eq!(rendered.statics, ["Welcome ", "."]);
-        assert_eq!(
-            rendered.dynamics,
-            [Dynamic::Nested(Rendered {
-                statics: vec!["person".to_string()],
-                dynamics: vec![]
-            })]
-        );
-
-        let foo = true;
-        let rendered = html! {
-            "Welcome "
-            @if foo {
-                (foo.to_string())
-            }
-            "."
-        };
-
-        assert_eq!(rendered.statics, ["Welcome ", "."]);
-        assert_eq!(
-            rendered.dynamics,
-            [Dynamic::Nested(Rendered {
-                statics: vec!["".to_string(), "".to_string()],
-                dynamics: vec![Dynamic::String("true".to_string())]
-            })]
-        );
-    }
-
-    #[lunatic::test]
-    fn if_statement_let_some() {
-        let user = Some("Bob");
-        let rendered = html! {
-            "Welcome "
-            @if let Some(user) = user {
-                (user)
-            } @else {
-                "stranger"
-            }
-        };
-
-        dbg!(&rendered);
-
-        assert_eq!(rendered.statics, ["Welcome ", ""]);
-        assert_eq!(
-            rendered.dynamics,
-            [Dynamic::Nested(Rendered {
-                statics: vec!["".to_string(), "".to_string()],
-                dynamics: vec![Dynamic::String("Bob".to_string())]
-            })]
-        );
-    }
-
-    #[lunatic::test]
-    fn if_statement_let_none() {
-        let user: Option<&str> = None;
-        let rendered = html! {
-            "Welcome "
-            @if let Some(user) = user {
-                (user)
-            } @else {
-                "stranger"
-            }
-        };
-
-        assert_eq!(rendered.statics, ["Welcome ", ""]);
-        assert_eq!(
-            rendered.dynamics,
-            [Dynamic::Nested(Rendered {
-                statics: vec!["stranger".to_string()],
-                dynamics: vec![]
-            })]
-        );
-    }
-
-    #[lunatic::test]
-    fn if_statement_nested() {
-        let count = 0;
-        let rendered = html! {
-            @if count >= 1 {
-                p { "Count is high" }
-                @if count >= 2 {
-                    p { "Count is very high!" }
-                }
-            }
-        };
-
-        assert_eq!(rendered.statics, ["", ""]);
-        assert_eq!(rendered.dynamics, [Dynamic::String("".to_string())]);
-
-        let count = 1;
-        let rendered = html! {
-            @if count >= 1 {
-                p { "Count is high" }
-                @if count >= 2 {
-                    p { "Count is very high!" }
-                }
-            }
-        };
-
-        dbg!(&rendered.statics);
-        dbg!(&rendered.dynamics);
-
-        assert_eq!(rendered.statics, ["", ""]);
-        assert_eq!(
-            rendered.dynamics,
-            [Dynamic::Nested(Rendered {
-                statics: vec!["<p>Count is high</p>".to_string(), "".to_string()],
-                dynamics: vec![Dynamic::String("".to_string())]
-            })]
-        );
-
-        let count = 2;
-        let rendered = html! {
-            @if count >= 1 {
-                p { "Count is high" }
-                @if count >= 2 {
-                    p { "Count is very high!" }
-                }
-            }
-        };
-
-        dbg!(&rendered.statics);
-        dbg!(&rendered.dynamics);
-
-        assert_eq!(rendered.statics, ["", ""]);
-        assert_eq!(
-            rendered.dynamics,
-            [Dynamic::Nested(Rendered {
-                statics: vec!["<p>Count is high</p>".to_string(), "".to_string()],
-                dynamics: vec![Dynamic::Nested(Rendered {
-                    statics: vec!["<p>Count is very high!</p>".to_string()],
-                    dynamics: vec![]
-                })]
-            })]
-        );
     }
 }
