@@ -32,6 +32,10 @@ impl LiveView for Counter {
     fn mount(_uri: Uri) -> Self {
         Counter { count: 0 }
     }
+
+    fn styles() -> &'static [&'static str] {
+        &["/static/counter.css"]
+    }
 }
 
 #[derive(Deserialize)]
