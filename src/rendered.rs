@@ -284,8 +284,6 @@ impl RenderedBuilder {
     }
 
     pub fn push_static(&mut self, s: &str) {
-        println!("push_static: {s:?}");
-
         let last = self.last_mut();
         if last.nested && last.dynamics.is_empty() {
             last.dynamics.push(Dynamic::Nested(RenderedBuilder {
@@ -304,8 +302,6 @@ impl RenderedBuilder {
     }
 
     pub fn push_dynamic(&mut self, s: String) {
-        println!("push_dynamic: {s:?}");
-
         let last = self.last_mut();
         if last.nested && last.dynamics.is_empty() {
             last.dynamics.push(Dynamic::Nested(RenderedBuilder {
@@ -323,8 +319,6 @@ impl RenderedBuilder {
     }
 
     pub fn push_if_frame(&mut self) {
-        println!("push_if_frame");
-
         let mut last = self.last_mut();
         last.nested = true;
         if last.statics.is_empty() {
@@ -344,8 +338,6 @@ impl RenderedBuilder {
     }
 
     pub fn pop_frame(&mut self) {
-        println!("pop_frame");
-
         let last = self.last_mut();
         if last.statics.len() <= last.dynamics.len() {
             last.statics.push(String::new());
