@@ -1,11 +1,7 @@
 use std::collections::HashMap;
 
 use submillisecond_live_view::html;
-use submillisecond_live_view::rendered::{DiffRender, Dynamic, Rendered, RenderedDiff};
-
-fn render_diff(a: Rendered, b: Rendered) -> RenderedDiff {
-    a.diff(b)
-}
+use submillisecond_live_view::rendered::{DiffRender, Dynamic, RenderedDiff};
 
 #[lunatic::test]
 fn dynamic_diff() {
@@ -17,7 +13,7 @@ fn dynamic_diff() {
         }
     };
 
-    let diff = render_diff(render("hey"), render("there"));
+    let diff = render("hey").diff(render("there"));
     assert_eq!(
         diff,
         RenderedDiff {
@@ -38,7 +34,8 @@ fn if_statement_false_to_true_diff() {
             "."
         }
     };
-    let diff = render_diff(render(false), render(true));
+
+    let diff = render(false).diff(render(true));
     assert_eq!(
         diff,
         RenderedDiff {
@@ -62,7 +59,8 @@ fn if_statement_false_to_true_diff() {
             "."
         }
     };
-    let diff = render_diff(render(false), render(true));
+
+    let diff = render(false).diff(render(true));
     assert_eq!(
         diff,
         RenderedDiff {
@@ -89,7 +87,8 @@ fn if_statement_true_to_false_diff() {
             "."
         }
     };
-    let diff = render_diff(render(true), render(false));
+
+    let diff = render(true).diff(render(false));
     assert_eq!(
         diff,
         RenderedDiff {
@@ -107,7 +106,8 @@ fn if_statement_true_to_false_diff() {
             "."
         }
     };
-    let diff = render_diff(render(true), render(false));
+
+    let diff = render(true).diff(render(false));
     assert_eq!(
         diff,
         RenderedDiff {
@@ -129,7 +129,8 @@ fn if_statement_let_none_to_some_diff() {
             }
         }
     };
-    let diff = render_diff(render(None), render(Some("Bob")));
+
+    let diff = render(None).diff(render(Some("Bob")));
     assert_eq!(
         diff,
         RenderedDiff {
@@ -157,7 +158,8 @@ fn if_statement_let_some_to_none_diff() {
             }
         }
     };
-    let diff = render_diff(render(Some("Bob")), render(None));
+
+    let diff = render(Some("Bob")).diff(render(None));
     assert_eq!(
         diff,
         RenderedDiff {
@@ -185,7 +187,8 @@ fn if_statement_nested_diff() {
             }
         }
     };
-    let diff = render_diff(render(0), render(1));
+
+    let diff = render(0).diff(render(1));
     assert_eq!(
         diff,
         RenderedDiff {
@@ -200,7 +203,7 @@ fn if_statement_nested_diff() {
         }
     );
 
-    let diff = render_diff(render(1), render(2));
+    let diff = render(1).diff(render(2));
     assert_eq!(
         diff,
         RenderedDiff {
@@ -221,7 +224,7 @@ fn if_statement_nested_diff() {
         }
     );
 
-    let diff = render_diff(render(2), render(3));
+    let diff = render(2).diff(render(3));
     assert_eq!(
         diff,
         RenderedDiff {
