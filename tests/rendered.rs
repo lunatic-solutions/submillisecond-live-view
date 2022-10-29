@@ -38,8 +38,6 @@ fn if_statement_false() {
         "."
     };
 
-    dbg!(&rendered);
-
     assert_eq!(rendered.statics, ["Welcome ", "."]);
     assert_eq!(rendered.dynamics, [Dynamic::String("".to_string())]);
 
@@ -51,8 +49,6 @@ fn if_statement_false() {
         }
         "."
     };
-
-    dbg!(&rendered);
 
     assert_eq!(rendered.statics, ["Welcome ", "."]);
     assert_eq!(rendered.dynamics, [Dynamic::String("".to_string())]);
@@ -108,8 +104,6 @@ fn if_statement_let_some() {
             "stranger"
         }
     };
-
-    dbg!(&rendered);
 
     assert_eq!(rendered.statics, ["Welcome ", ""]);
     assert_eq!(
@@ -168,9 +162,6 @@ fn if_statement_nested() {
         }
     };
 
-    dbg!(&rendered.statics);
-    dbg!(&rendered.dynamics);
-
     assert_eq!(rendered.statics, ["", ""]);
     assert_eq!(
         rendered.dynamics,
@@ -189,9 +180,6 @@ fn if_statement_nested() {
             }
         }
     };
-
-    dbg!(&rendered.statics);
-    dbg!(&rendered.dynamics);
 
     assert_eq!(rendered.statics, ["", ""]);
     assert_eq!(
