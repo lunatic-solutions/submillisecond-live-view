@@ -1,5 +1,3 @@
-// NEW
-
 use super::{Dynamic, DynamicItems, DynamicList, Dynamics, Rendered, RenderedListItem};
 
 #[derive(Debug)]
@@ -16,6 +14,7 @@ pub struct RenderedListItemBuilder {
     statics: usize,
     dynamics: Vec<Dynamic<Self>>,
     nested: bool,
+    level: usize,
 }
 
 #[derive(Debug)]
@@ -212,32 +211,6 @@ impl RenderedBuilder {
         }
     }
 
-    fn last_template_index(&self) -> usize {
-        let mut current = self;
-
-        loop {
-            if !current.nested {
-                return current.templates.len() - 1;
-            }
-
-            let next = match &current.dynamics {
-                Dynamics::Items(items) => items.last().and_then(|last| match last {
-                    Dynamic::String(_) => None,
-                    Dynamic::Nested(nested) => Some(nested),
-                }),
-                Dynamics::List(_) => None,
-            };
-            match next {
-                Some(next) => {
-                    current = next;
-                }
-                None => {
-                    return current.templates.len() - 1;
-                }
-            }
-        }
-    }
-
     fn last_parent_mut(&mut self) -> Option<LastItem> {
         if !self.nested {
             return None;
@@ -265,38 +238,6 @@ impl RenderedBuilder {
             }
         }
     }
-    // fn last_parent_mut(&mut self) -> Option<&mut Self> {
-    //     if !self.nested {
-    //         return None;
-    //     }
-
-    //     let mut current = self as *mut Self;
-
-    //     loop {
-    //         unsafe {
-    //             let next = match &mut (*current).dynamics {
-    //                 Dynamics::Items(items) => items.last_mut().and_then(|last|
-    // match last {                     Dynamic::String(_) => None,
-    //                     Dynamic::Nested(nested) => Some(nested),
-    //                 }),
-    //                 Dynamics::List(_) => None,
-    //             };
-    //             if !next.map(|next| next.nested).unwrap_or(false) {
-    //                 return Some(&mut (*current));
-    //             }
-    //             let next = match &mut (*current).dynamics {
-    //                 Dynamics::Items(items) => items.last_mut().and_then(|last|
-    // match last {                     Dynamic::String(_) => None,
-    //                     Dynamic::Nested(nested) => Some(nested),
-    //                 }),
-    //                 Dynamics::List(_) => None,
-    //             };
-    //             if let Some(next) = next {
-    //                 current = next;
-    //             }
-    //         }
-    //     }
-    // }
 }
 
 impl RenderedBuilder {
@@ -402,6 +343,7 @@ impl RenderedBuilder {
                                 statics: last.templates.len() - 1,
                                 dynamics: vec![Dynamic::String(s)],
                                 nested: true,
+                                level: 0,
                             }));
                         } else {
                             list_last.push(Dynamic::String(s));
@@ -420,6 +362,7 @@ impl RenderedBuilder {
                         statics: static_index,
                         dynamics: vec![Dynamic::String(s)],
                         nested: true,
+                        level: last.level + 1,
                     }));
                 } else {
                     last.dynamics.push(Dynamic::String(s));

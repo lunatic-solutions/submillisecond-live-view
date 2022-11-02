@@ -378,71 +378,71 @@ fn for_loop_with_multiple_ifs() {
     assert!(rendered.templates.is_empty());
 }
 
-// #[lunatic::test]
-// fn for_loop_with_many_ifs() {
-//     let names = ["John", "Joe", "Jim"];
-//     let rendered = html! {
-//         @for name in names {
-//             span { "Welcome, " (name) "." }
-//             @if name == "Jim" || name == "Joe" {
-//                 span { "You are a VIP, " (name.to_lowercase()) }
-//                 @if name.ends_with('m') || name.ends_with('e') {
-//                     span { (name) " ends with m or e" }
-//                 }
-//             }
-//         }
-//     };
+#[lunatic::test]
+fn for_loop_with_many_ifs() {
+    let names = ["John", "Joe", "Jim"];
+    let rendered = html! {
+        @for name in names {
+            span { "Welcome, " (name) "." }
+            @if name == "Jim" || name == "Joe" {
+                span { "You are a VIP, " (name.to_lowercase()) }
+                @if name.ends_with('m') || name.ends_with('e') {
+                    span { (name) " ends with m or e" }
+                }
+            }
+        }
+    };
 
-//     assert_eq!(rendered.statics, vec!["".to_string(), "".to_string()]);
-//     assert_eq!(
-//         rendered.dynamics,
-//         Dynamics::Items(DynamicItems(vec![Dynamic::Nested(Rendered {
-//             statics: vec![
-//                 "<span>Welcome, ".to_string(),
-//                 ".</span>".to_string(),
-//                 "".to_string()
-//             ],
-//             dynamics: Dynamics::List(DynamicList(vec![
-//                 vec![
-//                     Dynamic::String("John".to_string()),
-//                     Dynamic::String("".to_string()),
-//                 ],
-//                 vec![
-//                     Dynamic::String("Joe".to_string()),
-//                     Dynamic::Nested(RenderedListItem {
-//                         statics: 1,
-//                         dynamics: vec![
-//                             Dynamic::String("joe".to_string()),
-//                             Dynamic::Nested(RenderedListItem {
-//                                 statics: 0,
-//                                 dynamics:
-// vec![Dynamic::String("Joe".to_string())],                             }),
-//                         ],
-//                     }),
-//                 ],
-//                 vec![
-//                     Dynamic::String("Jim".to_string()),
-//                     Dynamic::Nested(RenderedListItem {
-//                         statics: 1,
-//                         dynamics: vec![
-//                             Dynamic::String("jim".to_string()),
-//                             Dynamic::Nested(RenderedListItem {
-//                                 statics: 0,
-//                                 dynamics:
-// vec![Dynamic::String("Jim".to_string())],                             }),
-//                         ],
-//                     }),
-//                 ],
-//             ])),
-//             templates: vec![
-//                 vec!["<span>".to_string(), " ends with m or
-// e</span>".to_string()],                 vec![
-//                     "<span>You are a VIP, ".to_string(),
-//                     "</span>".to_string(),
-//                     "".to_string()
-//                 ],
-//             ],
-//         })]))
-//     );
-//     assert!(rendered.templates.is_empty());
-// }
+    assert_eq!(rendered.statics, vec!["".to_string(), "".to_string()]);
+    assert_eq!(
+        rendered.dynamics,
+        Dynamics::Items(DynamicItems(vec![Dynamic::Nested(Rendered {
+            statics: vec![
+                "<span>Welcome, ".to_string(),
+                ".</span>".to_string(),
+                "".to_string()
+            ],
+            dynamics: Dynamics::List(DynamicList(vec![
+                vec![
+                    Dynamic::String("John".to_string()),
+                    Dynamic::String("".to_string()),
+                ],
+                vec![
+                    Dynamic::String("Joe".to_string()),
+                    Dynamic::Nested(RenderedListItem {
+                        statics: 1,
+                        dynamics: vec![
+                            Dynamic::String("joe".to_string()),
+                            Dynamic::Nested(RenderedListItem {
+                                statics: 0,
+                                dynamics: vec![Dynamic::String("Joe".to_string())],
+                            }),
+                        ],
+                    }),
+                ],
+                vec![
+                    Dynamic::String("Jim".to_string()),
+                    Dynamic::Nested(RenderedListItem {
+                        statics: 1,
+                        dynamics: vec![
+                            Dynamic::String("jim".to_string()),
+                            Dynamic::Nested(RenderedListItem {
+                                statics: 0,
+                                dynamics: vec![Dynamic::String("Jim".to_string())],
+                            }),
+                        ],
+                    }),
+                ],
+            ])),
+            templates: vec![
+                vec!["<span>".to_string(), " ends with m or e</span>".to_string()],
+                vec![
+                    "<span>You are a VIP, ".to_string(),
+                    "</span>".to_string(),
+                    "".to_string()
+                ],
+            ],
+        })]))
+    );
+    assert!(rendered.templates.is_empty());
+}
