@@ -37,14 +37,6 @@ impl Rendered {
     pub fn builder() -> builder_new::Tree {
         builder_new::Tree::new()
     }
-
-    pub fn is_empty(&self) -> bool {
-        self.statics.is_empty()
-            && match &self.dynamics {
-                Dynamics::Items(DynamicItems(items)) => items.is_empty(),
-                Dynamics::List(DynamicList(list)) => list.is_empty(),
-            }
-    }
 }
 
 impl fmt::Display for Rendered {
