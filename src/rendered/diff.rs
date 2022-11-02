@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use itertools::{EitherOrBoth, Itertools};
 
-use super::{Dynamic, Rendered};
+use super::{Dynamic, DynamicItems, Dynamics, Rendered};
 
 pub trait DiffRender<Rhs> {
     fn diff(self, other: Rhs) -> RenderedDiff;
@@ -13,8 +13,9 @@ where
     Rhs: Into<RenderedDiff>,
 {
     fn diff(self, other: Rhs) -> RenderedDiff {
-        let this: RenderedDiff = self.into();
-        this.diff(other)
+        // let this: RenderedDiff = self.into();
+        // this.diff(other)
+        todo!()
     }
 }
 
@@ -84,23 +85,22 @@ pub struct RenderedDiff {
 
 impl From<Rendered> for RenderedDiff {
     fn from(rendered: Rendered) -> Self {
-        RenderedDiff {
-            statics: rendered.statics,
-            dynamics: rendered
-                .dynamics
-                .into_iter()
-                .enumerate()
-                .map(|(i, dynamic)| (i, Dynamic::<RenderedDiff>::from(dynamic)))
-                .collect(),
-        }
-    }
-}
+        // let dynamics = match rendered.dynamics {
+        //     Dynamics::Items(items) => Dynamics::Items(DynamicItems(
+        //         items
+        //             .0
+        //             .into_iter()
+        //             .enumerate()
+        //             .map(|(i, dynamic)| (i, Dynamic::from(dynamic)))
+        //             .collect(),
+        //     )),
+        //     Dynamics::List(list) => todo!(),
+        // };
 
-impl From<Dynamic<Rendered>> for Dynamic<RenderedDiff> {
-    fn from(d: Dynamic<Rendered>) -> Self {
-        match d {
-            Dynamic::String(s) => Dynamic::String(s),
-            Dynamic::Nested(n) => Dynamic::Nested(n.into()),
-        }
+        // RenderedDiff {
+        //     statics: rendered.statics,
+        //     dynamics,
+        // }
+        todo!()
     }
 }

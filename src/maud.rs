@@ -72,35 +72,36 @@ where
 
         let content = T::mount(req.uri().clone()).render().to_string();
 
-        let body = html! {
-            (DOCTYPE)
-            html lang="en" {
-                head {
-                    meta charset="utf-8";
-                    meta http-equiv="X-UA-Compatible" content="IE=edge";
-                    meta name="viewport" content="width=device-width, initial-scale=1.0";
-                    meta name="csrf-token" content=(csrf_token);
-                    title { "submillisecond live view" }
-                    @for style in T::styles() {
-                        link rel="stylesheet" href=(style);
-                    }
-                    script defer type="text/javascript" src="/static/main.js" {}
-                    @for script in T::scripts() {
-                        script defer type="text/javascript" src=(script) {}
-                    }
-                }
-                body {
-                    div data-phx-main="true" data-phx-static="" data-phx-session=(session_str) id=(id) {
-                        (PreEscaped(content))
-                    }
-                }
-            }
-        };
+        // let body = html! {
+        //     (DOCTYPE)
+        //     html lang="en" {
+        //         head {
+        //             meta charset="utf-8";
+        //             meta http-equiv="X-UA-Compatible" content="IE=edge";
+        //             meta name="viewport" content="width=device-width,
+        // initial-scale=1.0";             meta name="csrf-token"
+        // content=(csrf_token);             title { "submillisecond live view"
+        // }             @for style in T::styles() {
+        //                 link rel="stylesheet" href=(style);
+        //             }
+        //             script defer type="text/javascript" src="/static/main.js" {}
+        //             @for script in T::scripts() {
+        //                 script defer type="text/javascript" src=(script) {}
+        //             }
+        //         }
+        //         body {
+        //             div data-phx-main="true" data-phx-static=""
+        // data-phx-session=(session_str) id=(id) {                 
+        // (PreEscaped(content))             }
+        //         }
+        //     }
+        // };
 
-        Response::builder()
-            .header("Content-Type", "text/html; charset=UTF-8")
-            .body(body.to_string().into_bytes())
-            .unwrap()
+        // Response::builder()
+        //     .header("Content-Type", "text/html; charset=UTF-8")
+        //     .body(body.to_string().into_bytes())
+        //     .unwrap()
+        todo!()
     }
 
     fn handle_join(
@@ -135,12 +136,13 @@ where
 
         let live_view = T::mount(uri);
         let state = live_view.render();
-        let reply = json!({ "rendered": state.clone().into_json() });
-        LiveViewManagerResult::Ok(Join {
-            live_view,
-            state,
-            reply,
-        })
+        // let reply = json!({ "rendered": state.clone().into_json() });
+        // LiveViewManagerResult::Ok(Join {
+        //     live_view,
+        //     state,
+        //     reply,
+        // })
+        todo!()
     }
 
     fn handle_event(
@@ -150,10 +152,11 @@ where
         live_view: &T,
     ) -> LiveViewManagerResult<Self::Reply, Self::Error> {
         let rendered = live_view.render();
-        let diff = state.clone().diff(rendered.clone()); // TODO: Remove these clones
-        *state = rendered;
+        // let diff = state.clone().diff(rendered.clone()); // TODO: Remove these clones
+        // *state = rendered;
 
-        LiveViewManagerResult::Ok(json!({ "diff": diff.into_json() }))
+        // LiveViewManagerResult::Ok(json!({ "diff": diff.into_json() }))
+        todo!()
     }
 }
 

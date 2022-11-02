@@ -13,6 +13,8 @@ jwt = "0.16.0"
 lunatic = "0.11.4"
 lunatic-log = "0.2"
 maud = { path = "./crates/maud/maud" }
+polonius-the-crab = "0.3"
+pretty_assertions = "1.3"
 rand = "0.8"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
