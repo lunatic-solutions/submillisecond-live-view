@@ -10,6 +10,15 @@ pub enum Dynamics<N, L> {
     List(DynamicList<L>),
 }
 
+impl<N, L> Dynamics<N, L> {
+    pub fn len(&self) -> usize {
+        match self {
+            Dynamics::Items(DynamicItems(items)) => items.len(),
+            Dynamics::List(DynamicList(list)) => list.len(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DynamicItems<N>(pub Vec<Dynamic<N>>);
 

@@ -7,6 +7,7 @@
 // const TEMPLATES: &str = "p";
 
 mod builder;
+mod builder_new;
 mod diff;
 mod dynamic;
 
@@ -33,8 +34,16 @@ pub struct RenderedListItem {
 }
 
 impl Rendered {
-    pub fn builder() -> RenderedBuilder {
-        RenderedBuilder::new()
+    pub fn builder() -> builder_new::Tree {
+        builder_new::Tree::new()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.statics.is_empty()
+            && match &self.dynamics {
+                Dynamics::Items(DynamicItems(items)) => items.is_empty(),
+                Dynamics::List(DynamicList(list)) => list.is_empty(),
+            }
     }
 }
 
