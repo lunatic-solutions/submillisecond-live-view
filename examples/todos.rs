@@ -45,6 +45,18 @@ impl LiveView for Todos {
         SetFilter,
     );
 
+    fn mount(_uri: Uri) -> Self {
+        Todos {
+            filter: Filter::All,
+            todos: vec![Todo {
+                id: Uuid::new_v4(),
+                title: "Eat pie".to_string(),
+                completed: false,
+                editing: false,
+            }],
+        }
+    }
+
     fn render(&self) -> Rendered {
         let visible_todos: Vec<_> = match self.filter {
             Filter::All => self.todos.iter().collect(),
@@ -166,18 +178,6 @@ impl LiveView for Todos {
                     }
                 }
             }
-        }
-    }
-
-    fn mount(_uri: Uri) -> Self {
-        Todos {
-            filter: Filter::All,
-            todos: vec![Todo {
-                id: Uuid::new_v4(),
-                title: "Eat pie".to_string(),
-                completed: false,
-                editing: false,
-            }],
         }
     }
 

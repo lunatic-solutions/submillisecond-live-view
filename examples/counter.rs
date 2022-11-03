@@ -18,19 +18,19 @@ struct Counter {
 impl LiveView for Counter {
     type Events = (Increment, Decrement);
 
+    fn mount(_uri: Uri) -> Self {
+        Counter { count: 0 }
+    }
+
     fn render(&self) -> Rendered {
         html! {
-            button :id=(1) @click=(Increment) { "Increment" }
+            button @click=(Increment) { "Increment" }
             button @click=(Decrement) { "Decrement" }
             p { "Count is " (self.count) }
             @if self.count >= 5 {
                 p { "Count is high!" }
             }
         }
-    }
-
-    fn mount(_uri: Uri) -> Self {
-        Counter { count: 0 }
     }
 
     fn styles() -> &'static [&'static str] {

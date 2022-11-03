@@ -11,9 +11,9 @@ use crate::socket::Event;
 pub trait LiveView: Sized {
     type Events: EventList<Self>;
 
-    fn render(&self) -> Rendered;
-
     fn mount(uri: Uri) -> Self;
+
+    fn render(&self) -> Rendered;
 
     fn styles() -> &'static [&'static str] {
         &[]
