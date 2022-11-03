@@ -69,6 +69,36 @@ Add it as a dependency
 submillisecond-live-view = "*"
 ```
 
+## Running examples
+
+Clone the repository
+
+```bash
+git clone git@github.com:lunatic-solutions/submillisecond-live-view.git
+cd submillisecond-live-view
+```
+
+Initialize submodules
+
+```bash
+git submodule init
+```
+
+Build JS
+
+```bash
+cd web
+npm i
+npm run build
+cd ..
+```
+
+Finally, run an example
+
+```bash
+cargo run --example counter
+```
+
 # License
 
 Licensed under either of
