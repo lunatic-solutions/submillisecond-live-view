@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use lunatic_log::{error, info, warn};
+use lunatic_log::{error, info, trace, warn};
 use serde::{Deserialize, Serialize};
 use serde_json::Map;
 use submillisecond::extract::FromOwnedRequest;
@@ -119,7 +119,7 @@ where
     L: LiveViewManager<T>,
     T: LiveView,
 {
-    info!("Received message: {message:?}");
+    trace!("Received message: {message:?}");
     match message.event {
         ProtocolEvent::Close => {
             info!("Client left");
@@ -129,6 +129,7 @@ where
         ProtocolEvent::Event => match message.take_event() {
             Ok(event) => match state.as_mut() {
                 Some((live_view, state)) => {
+                    info!("Received event {}", event.name);
                     match <T::Events as EventList<T>>::handle_event(live_view, event.clone()) {
                         Ok(handled) => {
                             if !handled {
