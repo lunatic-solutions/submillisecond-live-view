@@ -19,7 +19,7 @@ use thiserror::Error;
 use crate::csrf::CsrfToken;
 use crate::manager::{Join, LiveViewManager, LiveViewManagerResult};
 use crate::rendered::{IntoJson, Rendered};
-use crate::socket::{Event, JoinEvent};
+use crate::socket::{Event, JoinEvent, Socket};
 use crate::{self as submillisecond_live_view, html, LiveView, PreEscaped, DOCTYPE};
 
 #[derive(Serialize, Deserialize)]
@@ -70,7 +70,7 @@ where
         };
         let session_str = session.sign_with_key(&key).expect("failed to sign session");
 
-        let content = T::mount(req.uri().clone()).render().to_string();
+        let content = T::mount(req.uri().clone(), None).render().to_string();
 
         let body = html! {
             (DOCTYPE)
@@ -105,6 +105,7 @@ where
 
     fn handle_join(
         &self,
+        socket: &mut Socket,
         event: JoinEvent,
     ) -> LiveViewManagerResult<Join<T, Self::State, Self::Reply>, Self::Error> {
         let key: Hmac<Sha256> = Hmac::new_from_slice(&secret()).expect("unable to encode secret");
@@ -133,7 +134,7 @@ where
             .parse()
             .map_err(|_| LiveViewMaudError::InvalidUrl));
 
-        let live_view = T::mount(uri);
+        let live_view = T::mount(uri, Some(socket));
         let state = live_view.render();
         let reply = json!({ "rendered": state.clone().into_json() });
         LiveViewManagerResult::Ok(Join {

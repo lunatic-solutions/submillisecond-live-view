@@ -4,7 +4,7 @@ use serde::Serialize;
 use submillisecond::response::Response;
 use submillisecond::RequestContext;
 
-use crate::socket::{Event, JoinEvent};
+use crate::socket::{Event, JoinEvent, Socket};
 
 /// Handles requests and events.
 pub trait LiveViewManager<T> {
@@ -18,6 +18,7 @@ pub trait LiveViewManager<T> {
     /// Handle a join event returning state and a reply.
     fn handle_join(
         &self,
+        socket: &mut Socket,
         event: JoinEvent,
     ) -> LiveViewManagerResult<Join<T, Self::State, Self::Reply>, Self::Error>;
 

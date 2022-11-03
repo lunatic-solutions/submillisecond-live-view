@@ -16,5 +16,6 @@ pub mod prelude {
     pub use crate::handler::LiveViewRouter;
     pub use crate::manager::*;
     pub use crate::rendered::Rendered;
+    pub use crate::socket::{Socket, SocketError, SocketMessage};
     pub use crate::*;
 }

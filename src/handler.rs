@@ -189,7 +189,7 @@ where
         }
         ProtocolEvent::Join => {
             let join_event = message.take_join_event().expect("invalid join event");
-            match manager.handle_join(join_event) {
+            match manager.handle_join(socket, join_event) {
                 LiveViewManagerResult::Ok(Join {
                     live_view,
                     state: new_state,

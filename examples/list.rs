@@ -18,7 +18,7 @@ struct List {
 impl LiveView for List {
     type Events = (Add, Remove, IncrementLast);
 
-    fn mount(_uri: Uri) -> Self {
+    fn mount(_uri: Uri, _socket: Option<&mut Socket>) -> Self {
         List {
             numbers: Vec::new(),
         }
@@ -46,7 +46,7 @@ impl LiveView for List {
 struct Add {}
 
 impl LiveViewEvent<Add> for List {
-    fn handle(state: &mut Self, _event: Add, _event_type: String) {
+    fn handle(state: &mut Self, _event: Add) {
         state
             .numbers
             .push(state.numbers.last().map(|last| last + 1).unwrap_or(0));
@@ -57,7 +57,7 @@ impl LiveViewEvent<Add> for List {
 struct Remove {}
 
 impl LiveViewEvent<Remove> for List {
-    fn handle(state: &mut Self, _event: Remove, _event_type: String) {
+    fn handle(state: &mut Self, _event: Remove) {
         state.numbers.pop();
     }
 }
@@ -66,7 +66,7 @@ impl LiveViewEvent<Remove> for List {
 struct IncrementLast {}
 
 impl LiveViewEvent<IncrementLast> for List {
-    fn handle(state: &mut Self, _event: IncrementLast, _event_type: String) {
+    fn handle(state: &mut Self, _event: IncrementLast) {
         if let Some(last) = state.numbers.last_mut() {
             *last += 1;
         }

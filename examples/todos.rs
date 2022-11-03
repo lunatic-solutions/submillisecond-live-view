@@ -1,9 +1,6 @@
 use serde::{Deserialize, Serialize};
-use submillisecond::http::Uri;
 use submillisecond::{router, static_router, Application};
-use submillisecond_live_view::handler::LiveViewRouter;
-use submillisecond_live_view::rendered::Rendered;
-use submillisecond_live_view::{html, CheckboxValue, LiveView, LiveViewEvent};
+use submillisecond_live_view::prelude::*;
 use uuid::Uuid;
 
 fn main() -> std::io::Result<()> {
@@ -31,7 +28,7 @@ impl LiveView for Todos {
         SetFilter,
     );
 
-    fn mount(_uri: Uri) -> Self {
+    fn mount(_uri: Uri, _socket: Option<&mut Socket>) -> Self {
         Todos {
             filter: Filter::All,
             todos: vec![Todo::new("Hello".to_string())],
@@ -85,7 +82,7 @@ struct Add {
 }
 
 impl LiveViewEvent<Add> for Todos {
-    fn handle(state: &mut Self, event: Add, _event_type: String) {
+    fn handle(state: &mut Self, event: Add) {
         state.todos.push(Todo::new(event.title));
     }
 }
@@ -96,7 +93,7 @@ struct Remove {
 }
 
 impl LiveViewEvent<Remove> for Todos {
-    fn handle(state: &mut Self, event: Remove, _event_type: String) {
+    fn handle(state: &mut Self, event: Remove) {
         state.todos.retain(|todo| todo.id != event.id);
     }
 }
@@ -109,7 +106,7 @@ struct Toggle {
 }
 
 impl LiveViewEvent<Toggle> for Todos {
-    fn handle(state: &mut Self, event: Toggle, _event_type: String) {
+    fn handle(state: &mut Self, event: Toggle) {
         if let Some(todo) = state.todos.iter_mut().find(|todo| todo.id == event.id) {
             todo.completed = event.value.is_checked();
         }
@@ -123,7 +120,7 @@ struct Edit {
 }
 
 impl LiveViewEvent<Edit> for Todos {
-    fn handle(state: &mut Self, event: Edit, _event_type: String) {
+    fn handle(state: &mut Self, event: Edit) {
         if let Some(todo) = state.todos.iter_mut().find(|todo| todo.id == event.id) {
             todo.title = event.title;
             todo.editing = false;
@@ -138,7 +135,7 @@ struct ToggleEdit {
 }
 
 impl LiveViewEvent<ToggleEdit> for Todos {
-    fn handle(state: &mut Self, event: ToggleEdit, _event_type: String) {
+    fn handle(state: &mut Self, event: ToggleEdit) {
         if event.detail == 2 {
             if let Some(todo) = state.todos.iter_mut().find(|todo| todo.id == event.id) {
                 todo.editing = true;
@@ -151,7 +148,7 @@ impl LiveViewEvent<ToggleEdit> for Todos {
 struct ClearCompleted {}
 
 impl LiveViewEvent<ClearCompleted> for Todos {
-    fn handle(state: &mut Self, _event: ClearCompleted, _event_type: String) {
+    fn handle(state: &mut Self, _event: ClearCompleted) {
         state.todos.retain(|todo| !todo.completed);
     }
 }
@@ -162,7 +159,7 @@ struct SetFilter {
 }
 
 impl LiveViewEvent<SetFilter> for Todos {
-    fn handle(state: &mut Self, event: SetFilter, _event_type: String) {
+    fn handle(state: &mut Self, event: SetFilter) {
         state.filter = event.filter;
     }
 }

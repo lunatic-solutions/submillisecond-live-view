@@ -5,13 +5,13 @@ use submillisecond::RequestContext;
 use thiserror::Error;
 
 use crate::rendered::Rendered;
-use crate::socket::Event;
+use crate::socket::{Event, Socket};
 
 /// A live view.
 pub trait LiveView: Sized {
     type Events: EventList<Self>;
 
-    fn mount(uri: Uri) -> Self;
+    fn mount(uri: Uri, socket: Option<&mut Socket>) -> Self;
 
     fn render(&self) -> Rendered;
 
@@ -30,7 +30,7 @@ pub trait LiveView: Sized {
 
 /// Live view event handler.
 pub trait LiveViewEvent<E> {
-    fn handle(state: &mut Self, event: E, event_type: String);
+    fn handle(state: &mut Self, event: E);
 }
 
 /// Event list is a trait to handle an incoming live view event.
@@ -104,7 +104,7 @@ macro_rules! impl_event_list {
                                 }
                             }
                         };
-                        T::handle(state, value, event.ty);
+                        T::handle(state, value);
                         return Ok(true);
                     }
                 )*

@@ -7,6 +7,7 @@ use submillisecond::websocket::WebSocketConnection;
 use thiserror::Error;
 
 /// Wrapper around a websocket connection to handle phoenix channels.
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Socket {
     conn: WebSocketConnection,
 }
