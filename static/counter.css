@@ -1,0 +1,34 @@
+body {
+  font: 14px "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+body > div {
+  text-align: center;
+  padding: 64px 0;
+}
+
+button {
+  cursor: pointer;
+  background: #1890ff;
+  border: 1px solid #1890ff;
+  color: #fff;
+  border-radius: 2px;
+  margin: 8px;
+  font-size: 18px;
+  padding: 8px 16px;
+  transition: all 0.3s cubic-bezier(0.645, 0.045, 0.355, 1);
+}
+
+button:hover {
+  background-color: #40a9ff;
+  border-color: #40a9ff;
+}
+
+button:active {
+  background-color: #096dd9;
+  border-color: #096dd9;
+}
+
+p {
+  font-size: 22px;
+}

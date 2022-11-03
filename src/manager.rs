@@ -19,15 +19,14 @@ pub trait LiveViewManager<T> {
     fn handle_join(
         &self,
         event: JoinEvent,
-        values: &T,
-    ) -> LiveViewManagerResult<(Self::State, Self::Reply), Self::Error>;
+    ) -> LiveViewManagerResult<Join<T, Self::State, Self::Reply>, Self::Error>;
 
     /// Handle an event.
     fn handle_event(
         &self,
-        state: &mut Self::State,
         event: Event,
-        values: &T,
+        state: &mut Self::State,
+        live_view: &T,
     ) -> LiveViewManagerResult<Self::Reply, Self::Error>;
 }
 
@@ -39,4 +38,10 @@ pub enum LiveViewManagerResult<T, E> {
     Ok(T),
     Error(E),
     FatalError(E),
+}
+
+pub struct Join<L, S, R> {
+    pub live_view: L,
+    pub state: S,
+    pub reply: R,
 }

@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use lunatic_log::{error, info, warn};
+use lunatic_log::{error, info, trace, warn};
 use serde::{Deserialize, Serialize};
 use serde_json::Map;
 use submillisecond::extract::FromOwnedRequest;
@@ -9,9 +9,25 @@ use submillisecond::response::{IntoResponse, Response};
 use submillisecond::websocket::WebSocket;
 use submillisecond::{Handler, RequestContext};
 
-use crate::manager::{LiveViewManager, LiveViewManagerResult};
+use crate::manager::{Join, LiveViewManager, LiveViewManagerResult};
+use crate::maud::LiveViewMaud;
 use crate::socket::{Message, ProtocolEvent, Socket, SocketError, SocketMessage};
 use crate::{EventList, LiveView};
+
+type Manager<T> = LiveViewMaud<T>;
+
+pub trait LiveViewRouter: Sized {
+    fn handler() -> LiveViewHandler<Manager<Self>, Self>;
+}
+
+impl<T> LiveViewRouter for T
+where
+    T: LiveView,
+{
+    fn handler() -> LiveViewHandler<Manager<Self>, Self> {
+        LiveViewHandler::new(Manager::default())
+    }
+}
 
 pub struct LiveViewHandler<L, T> {
     live_view: L,
@@ -95,7 +111,7 @@ where
 
 fn handle_message<L, T>(
     socket: &mut Socket,
-    live_view: &L,
+    manager: &L,
     mut message: Message,
     state: &mut Option<(T, L::State)>,
 ) -> bool
@@ -103,7 +119,7 @@ where
     L: LiveViewManager<T>,
     T: LiveView,
 {
-    info!("Received message: {message:?}");
+    trace!("Received message: {message:?}");
     match message.event {
         ProtocolEvent::Close => {
             info!("Client left");
@@ -112,8 +128,9 @@ where
         ProtocolEvent::Error => true,
         ProtocolEvent::Event => match message.take_event() {
             Ok(event) => match state.as_mut() {
-                Some((state, socket_state)) => {
-                    match <T::Events as EventList<T>>::handle_event(state, event.clone()) {
+                Some((live_view, state)) => {
+                    info!("Received event {}", event.name);
+                    match <T::Events as EventList<T>>::handle_event(live_view, event.clone()) {
                         Ok(handled) => {
                             if !handled {
                                 warn!("received unknown event");
@@ -126,7 +143,7 @@ where
                         }
                     }
 
-                    let result = live_view.handle_event(socket_state, event, state);
+                    let result = manager.handle_event(event, state, live_view);
                     match result {
                         LiveViewManagerResult::Ok(reply) => {
                             match socket.send(message.reply_ok(reply)) {
@@ -172,10 +189,13 @@ where
         }
         ProtocolEvent::Join => {
             let join_event = message.take_join_event().expect("invalid join event");
-            let mount_state = T::mount(Some(socket));
-            match live_view.handle_join(join_event, &mount_state) {
-                LiveViewManagerResult::Ok((new_state, reply)) => {
-                    *state = Some((mount_state, new_state));
+            match manager.handle_join(join_event) {
+                LiveViewManagerResult::Ok(Join {
+                    live_view,
+                    state: new_state,
+                    reply,
+                }) => {
+                    *state = Some((live_view, new_state));
                     socket.send(message.reply_ok(reply)).unwrap();
                     true
                 }
