@@ -8,3 +8,6 @@ persistence
 
 /.vscode
 Cargo.lock
+
+# Static build files
+/static/main.js
