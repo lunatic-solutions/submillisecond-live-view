@@ -7,7 +7,9 @@
 // const TEMPLATES: &str = "p";
 
 mod builder;
+mod diff;
 mod dynamic;
+mod strip;
 
 use core::fmt;
 
@@ -16,6 +18,7 @@ use serde_json::{Map, Value};
 
 pub use self::builder::*;
 pub use self::dynamic::*;
+use self::strip::Strip;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Rendered {
@@ -35,10 +38,14 @@ impl Rendered {
         builder::RenderedBuilder::new()
     }
 
-    pub fn diff(self, other: Rendered) -> Value {
+    pub fn diff(self, other: Rendered) -> Option<Value> {
         let a = self.into_json();
         let b = other.into_json();
-        json_plus::diff(&a, &b).unwrap_or_default()
+        let diff = diff::diff(&a, &b).unwrap_or_default();
+        match diff {
+            Value::Object(_) => strip::strip(Strip::Nulls.into(), diff),
+            _ => None,
+        }
     }
 }
 
@@ -102,30 +109,46 @@ fn fmt_dynamic_list_item(
     Ok(())
 }
 
-pub trait IntoJson {
-    fn into_json(self) -> Value;
+pub trait IntoJson: Sized {
+    fn into_json(self) -> Value {
+        let mut map = Map::new();
+        self.write_json(&mut map);
+        map.into()
+    }
+
+    fn write_json(self, _map: &mut Map<String, Value>) {
+        todo!()
+    }
 }
 
 impl IntoJson for Rendered {
-    fn into_json(self) -> Value {
-        let mut map = Map::new();
+    fn write_json(self, map: &mut Map<String, Value>) {
         if !self.statics.is_empty() {
             map.insert(
                 "s".to_string(),
                 Value::Array(self.statics.into_iter().map(|s| s.into()).collect()),
             );
         }
-        let mut json: Value = map.into();
-        let dynamics = self.dynamics.into_json();
-        json_plus::merge(&mut json, &dynamics);
 
-        json
+        if !self.templates.is_empty() {
+            let mut templates_map = Map::new();
+            for (i, template) in self.templates.into_iter().enumerate() {
+                templates_map.insert(i.to_string(), template.into());
+            }
+            map.insert("p".to_string(), templates_map.into());
+        }
+
+        self.dynamics.write_json(map);
     }
 }
 
 impl IntoJson for RenderedListItem {
-    fn into_json(self) -> Value {
-        todo!()
+    fn write_json(self, map: &mut Map<String, Value>) {
+        map.insert("s".to_string(), self.statics.into());
+
+        for (i, dynamic) in self.dynamics.into_iter().enumerate() {
+            map.insert(i.to_string(), dynamic.into_json());
+        }
     }
 }
 
@@ -140,18 +163,23 @@ where
             Dynamics::List(list) => list.into_json(),
         }
     }
+
+    fn write_json(self, map: &mut Map<String, Value>) {
+        match self {
+            Dynamics::Items(items) => items.write_json(map),
+            Dynamics::List(list) => list.write_json(map),
+        }
+    }
 }
 
 impl<N> IntoJson for DynamicItems<N>
 where
     N: IntoJson,
 {
-    fn into_json(self) -> Value {
-        let mut map = Map::new();
+    fn write_json(self, map: &mut Map<String, Value>) {
         for (i, dynamic) in self.0.into_iter().enumerate() {
             map.insert(i.to_string(), dynamic.into_json());
         }
-        map.into()
     }
 }
 
@@ -161,6 +189,29 @@ where
 {
     fn into_json(self) -> Value {
         todo!()
+    }
+
+    fn write_json(self, map: &mut Map<String, Value>) {
+        let dynamics = Value::Array(
+            self.0
+                .into_iter()
+                .map(|dynamic| {
+                    Value::Array(
+                        dynamic
+                            .into_iter()
+                            .map(|dynamic| dynamic.into_json())
+                            .collect(),
+                    )
+                })
+                .collect(),
+        );
+
+        map.insert("d".to_string(), dynamics);
+
+        // for dynamics in self.0 {
+        //     map.insert(k, v)
+        // }
+        // todo!()
     }
 }
 

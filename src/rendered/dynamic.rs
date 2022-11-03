@@ -2,8 +2,6 @@ use std::{fmt, ops};
 
 use serde::{Deserialize, Serialize};
 
-use super::Rendered;
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Dynamics<N, L> {
     Items(DynamicItems<N>),
@@ -66,33 +64,34 @@ where
     }
 }
 
-macro_rules! impl_from_dynamics {
-    ($a: ty, $b: ty) => {
-        impl From<Dynamics<$a>> for Dynamics<$b> {
-            fn from(dynamics: Dynamics<$a>) -> Self {
-                match dynamics {
-                    Dynamics::Individual(dynamics) => {
-                        Dynamics::Individual(dynamics.into_iter().map(Dynamic::from).collect())
-                    }
-                    Dynamics::List(list) => Dynamics::List(
-                        list.into_iter()
-                            .map(|dynamics| dynamics.into_iter().map(Dynamic::from).collect())
-                            .collect(),
-                    ),
-                }
-            }
-        }
+// macro_rules! impl_from_dynamics {
+//     ($a: ty, $b: ty) => {
+//         impl From<Dynamics<$a>> for Dynamics<$b> {
+//             fn from(dynamics: Dynamics<$a>) -> Self {
+//                 match dynamics {
+//                     Dynamics::Individual(dynamics) => {
+//                         
+// Dynamics::Individual(dynamics.into_iter().map(Dynamic::from).collect())
+//                     }
+//                     Dynamics::List(list) => Dynamics::List(
+//                         list.into_iter()
+//                             .map(|dynamics|
+// dynamics.into_iter().map(Dynamic::from).collect())                           
+// .collect(),                     ),
+//                 }
+//             }
+//         }
 
-        impl From<Dynamic<$a>> for Dynamic<$b> {
-            fn from(dynamic: Dynamic<$a>) -> Self {
-                match dynamic {
-                    Dynamic::String(s) => Dynamic::String(s),
-                    Dynamic::Nested(n) => Dynamic::Nested(n.into()),
-                }
-            }
-        }
-    };
-}
+//         impl From<Dynamic<$a>> for Dynamic<$b> {
+//             fn from(dynamic: Dynamic<$a>) -> Self {
+//                 match dynamic {
+//                     Dynamic::String(s) => Dynamic::String(s),
+//                     Dynamic::Nested(n) => Dynamic::Nested(n.into()),
+//                 }
+//             }
+//         }
+//     };
+// }
 
 // impl_from_dynamics!(Rendered, RenderedBuilder);
 // impl_from_dynamics!(Rendered, RenderedDiff);

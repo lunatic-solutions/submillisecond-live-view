@@ -292,6 +292,45 @@ fn for_loop_dynamics() {
             templates: vec![],
         }
     );
+
+    let names = ["John", "Joe", "Jim"];
+    let rendered = html! {
+        @for name in names {
+            span class=(name) { (name) }
+        }
+    };
+
+    dbg!(&rendered);
+
+    assert_eq!(
+        rendered,
+        Rendered {
+            statics: vec!["".to_string(), "".to_string()],
+            dynamics: Dynamics::Items(DynamicItems(vec![Dynamic::Nested(Rendered {
+                statics: vec![
+                    "<span class=\"".to_string(),
+                    "\">".to_string(),
+                    "</span>".to_string()
+                ],
+                dynamics: Dynamics::List(DynamicList(vec![
+                    vec![
+                        Dynamic::String("John".to_string()),
+                        Dynamic::String("John".to_string())
+                    ],
+                    vec![
+                        Dynamic::String("Joe".to_string()),
+                        Dynamic::String("Joe".to_string())
+                    ],
+                    vec![
+                        Dynamic::String("Jim".to_string()),
+                        Dynamic::String("Jim".to_string())
+                    ],
+                ])),
+                templates: vec![],
+            })])),
+            templates: vec![],
+        }
+    );
 }
 
 #[lunatic::test]

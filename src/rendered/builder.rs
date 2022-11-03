@@ -20,6 +20,7 @@ struct Node {
 enum NodeValue {
     Items(ItemsNode),
     List(ListNode),
+    Nested(Rendered),
 }
 
 #[derive(Debug, Default)]
@@ -57,9 +58,24 @@ impl RenderedBuilder {
         root.build(&mut self)
     }
 
-    // pub fn push_nested(&mut self, other: Rendered) {
-
-    // }
+    pub fn push_nested(&mut self, other: Rendered) {
+        let parent = self.parent_of(self.last_node).unwrap();
+        let id = self
+            .nodes
+            .insert(Node::new(parent, NodeValue::Nested(other)));
+        let last_node = self.last_node_mut();
+        match &mut last_node.value {
+            NodeValue::Items(items) => items.dynamics.push(DynamicNode::Nested(id)),
+            NodeValue::List(_) => {
+                self.nodes.remove(id);
+                todo!()
+            }
+            NodeValue::Nested(_) => {
+                self.nodes.remove(id);
+                todo!()
+            }
+        }
+    }
 
     pub fn push_static(&mut self, s: &str) {
         self.last_node_mut().push_static(s)
@@ -87,6 +103,7 @@ impl RenderedBuilder {
                 list.iteration = list.iteration.wrapping_add(1); // First iteration will be 0
                 list.dynamics.push(vec![]);
             }
+            NodeValue::Nested(_) => todo!(),
         }
     }
 
@@ -117,6 +134,7 @@ impl RenderedBuilder {
                 Some(last_list) => last_list.push(DynamicNode::Nested(id)),
                 None => list.dynamics.push(vec![DynamicNode::Nested(id)]),
             },
+            NodeValue::Nested(_) => todo!(),
         }
         self.last_node = id;
     }
@@ -137,6 +155,7 @@ impl Node {
         match self.value {
             NodeValue::Items(items) => items.build(tree),
             NodeValue::List(list) => list.build(tree),
+            NodeValue::Nested(nested) => nested,
         }
     }
 
@@ -144,6 +163,7 @@ impl Node {
         match &mut self.value {
             NodeValue::Items(items) => items.push_static(s),
             NodeValue::List(list) => list.push_static(s),
+            NodeValue::Nested(_) => todo!(),
         }
     }
 
@@ -151,6 +171,7 @@ impl Node {
         match &mut self.value {
             NodeValue::Items(items) => items.push_dynamic(s),
             NodeValue::List(list) => list.push_dynamic(s),
+            NodeValue::Nested(_) => todo!(),
         }
     }
 }
@@ -209,7 +230,8 @@ impl ListNode {
 
     fn push_static(&mut self, s: &str) {
         if self.iteration == 0 {
-            push_or_extend_static_string(&mut self.statics, self.dynamics.len(), s);
+            let dynamics_len = self.dynamics.first().map(|first| first.len()).unwrap_or(0);
+            push_or_extend_static_string(&mut self.statics, dynamics_len, s);
         }
     }
 
@@ -305,6 +327,7 @@ impl DynamicNode {
                         }
                     }
                     NodeValue::List(_) => todo!(),
+                    NodeValue::Nested(_) => todo!(),
                 }
             }
         }

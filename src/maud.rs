@@ -153,7 +153,10 @@ where
         let diff = state.clone().diff(rendered.clone()); // TODO: Remove these clones
         *state = rendered;
 
-        LiveViewManagerResult::Ok(json!({ "diff": diff }))
+        match diff {
+            Some(diff) => LiveViewManagerResult::Ok(json!({ "diff": diff })),
+            None => LiveViewManagerResult::Ok(json!({})),
+        }
     }
 }
 
