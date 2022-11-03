@@ -65,7 +65,10 @@ impl RenderedBuilder {
             .insert(Node::new(parent, NodeValue::Nested(other)));
         let last_node = self.last_node_mut();
         match &mut last_node.value {
-            NodeValue::Items(items) => items.dynamics.push(DynamicNode::Nested(id)),
+            NodeValue::Items(items) => {
+                items.statics.push(String::new());
+                items.dynamics.push(DynamicNode::Nested(id));
+            }
             NodeValue::List(_) => {
                 self.nodes.remove(id);
                 todo!()
