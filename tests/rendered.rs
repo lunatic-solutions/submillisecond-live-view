@@ -3,7 +3,9 @@ use pretty_assertions::assert_eq;
 use submillisecond_live_view::rendered::{
     Dynamic, DynamicItems, DynamicList, Dynamics, Rendered, RenderedListItem,
 };
-use submillisecond_live_view::{self as submillisecond_live_view};
+use submillisecond_live_view::{
+    DOCTYPE, {self as submillisecond_live_view},
+};
 
 #[lunatic::test]
 fn basic() {
@@ -19,19 +21,26 @@ fn basic() {
 #[lunatic::test]
 fn dynamic() {
     let rendered = html! {
+        (DOCTYPE)
         a href={ ("hey") "/lambda-fairy/maud" } {
             "Hello, world!"
         }
     };
 
+    dbg!(&rendered);
+
     assert_eq!(
         rendered,
         Rendered {
             statics: vec![
+                "".to_string(),
                 "<a href=\"".to_string(),
                 "/lambda-fairy/maud\">Hello, world!</a>".to_string()
             ],
-            dynamics: Dynamics::Items(DynamicItems(vec![Dynamic::String("hey".to_string())])),
+            dynamics: Dynamics::Items(DynamicItems(vec![
+                Dynamic::String("<!DOCTYPE html>".to_string()),
+                Dynamic::String("hey".to_string())
+            ])),
             templates: vec![]
         }
     );

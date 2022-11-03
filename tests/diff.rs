@@ -1,27 +1,29 @@
 use std::collections::HashMap;
 
 use submillisecond_live_view::html;
-use submillisecond_live_view::rendered::{DiffRender, Dynamic, RenderedDiff};
+use submillisecond_live_view::rendered::Dynamic;
 
-// #[lunatic::test]
-// fn dynamic_diff() {
-//     let render = |s: &str| {
-//         html! {
-//             a href={ (s) "/lambda-fairy/maud" } {
-//                 "Hello, world!"
-//             }
-//         }
-//     };
+#[lunatic::test]
+fn dynamic_diff() {
+    let render = |s: &str| {
+        html! {
+            a href={ (s) "/lambda-fairy/maud" } {
+                "Hello, world!"
+            }
+        }
+    };
 
-//     let diff = render("hey").diff(render("there"));
-//     assert_eq!(
-//         diff,
-//         RenderedDiff {
-//             statics: vec![],
-//             dynamics: HashMap::from_iter([(0,
-// Dynamic::String("there".to_string()))]),         }
-//     );
-// }
+    let diff = render("hey").diff(render("there"));
+
+    dbg!(diff);
+    // assert_eq!(
+    //     diff,
+    //     RenderedDiff {
+    //         statics: vec![],
+    //         dynamics: HashMap::from_iter([(0,
+    // Dynamic::String("there".to_string()))]),     }
+    // );
+}
 
 // #[lunatic::test]
 // fn if_statement_false_to_true_diff() {

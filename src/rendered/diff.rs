@@ -4,6 +4,29 @@ use itertools::{EitherOrBoth, Itertools};
 
 use super::{Dynamic, DynamicItems, Dynamics, Rendered};
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RenderedDiff {
+    dynamics: DynamicsDiff,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct RenderedListItemDiff {
+    statics: usize,
+    dynamics: Vec<Dynamic<Self>>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum DynamicsDiff {
+    Items(DynamicItemsDiff),
+    List(DynamicListDiff),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct DynamicItemsDiff(Vec<Option<Dynamic<RenderedDiff>>>);
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct DynamicListDiff(Vec<Vec<Option<Dynamic<RenderedListItemDiff>>>>);
+
 pub trait DiffRender<Rhs> {
     fn diff(self, other: Rhs) -> RenderedDiff;
 }
@@ -13,9 +36,8 @@ where
     Rhs: Into<RenderedDiff>,
 {
     fn diff(self, other: Rhs) -> RenderedDiff {
-        // let this: RenderedDiff = self.into();
-        // this.diff(other)
-        todo!()
+        let this: RenderedDiff = self.into();
+        this.diff(other)
     }
 }
 
@@ -77,30 +99,21 @@ where
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct RenderedDiff {
-    pub statics: Vec<String>,
-    pub dynamics: HashMap<usize, Dynamic<Self>>,
-}
-
 impl From<Rendered> for RenderedDiff {
     fn from(rendered: Rendered) -> Self {
-        // let dynamics = match rendered.dynamics {
-        //     Dynamics::Items(items) => Dynamics::Items(DynamicItems(
-        //         items
-        //             .0
-        //             .into_iter()
-        //             .enumerate()
-        //             .map(|(i, dynamic)| (i, Dynamic::from(dynamic)))
-        //             .collect(),
-        //     )),
-        //     Dynamics::List(list) => todo!(),
-        // };
+        let dynamics = match rendered.dynamics {
+            Dynamics::Items(items) => items
+                .0
+                .into_iter()
+                .enumerate()
+                .map(|(i, dynamic)| (i, Dynamic::from(dynamic)))
+                .collect(),
+            Dynamics::List(list) => todo!(),
+        };
 
-        // RenderedDiff {
-        //     statics: rendered.statics,
-        //     dynamics,
-        // }
-        todo!()
+        RenderedDiff {
+            statics: rendered.statics,
+            dynamics,
+        }
     }
 }

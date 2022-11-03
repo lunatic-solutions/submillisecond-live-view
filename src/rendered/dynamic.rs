@@ -2,7 +2,7 @@ use std::{fmt, ops};
 
 use serde::{Deserialize, Serialize};
 
-use super::{Rendered, RenderedBuilder, RenderedDiff, RenderedListItem, RenderedListItemBuilder};
+use super::Rendered;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Dynamics<N, L> {
@@ -98,19 +98,19 @@ macro_rules! impl_from_dynamics {
 // impl_from_dynamics!(Rendered, RenderedDiff);
 // impl_from_dynamics!(Rendered, RenderedDiff);
 
-macro_rules! impl_from_dynamic {
-    ($a: ty, $b: ty) => {
-        impl From<Dynamic<$a>> for Dynamic<$b> {
-            fn from(dynamic: Dynamic<$a>) -> Self {
-                match dynamic {
-                    Dynamic::String(s) => Dynamic::String(s),
-                    Dynamic::Nested(n) => Dynamic::Nested(n.into()),
-                }
-            }
-        }
-    };
-}
+// macro_rules! impl_from_dynamic {
+//     ($a: ty, $b: ty) => {
+//         impl From<Dynamic<$a>> for Dynamic<$b> {
+//             fn from(dynamic: Dynamic<$a>) -> Self {
+//                 match dynamic {
+//                     Dynamic::String(s) => Dynamic::String(s),
+//                     Dynamic::Nested(n) => Dynamic::Nested(n.into()),
+//                 }
+//             }
+//         }
+//     };
+// }
 
-impl_from_dynamic!(RenderedBuilder, Rendered);
-impl_from_dynamic!(RenderedListItemBuilder, RenderedListItem);
-impl_from_dynamic!(Rendered, RenderedDiff);
+// impl_from_dynamic!(RenderedBuilder, Rendered);
+// impl_from_dynamic!(RenderedListItemBuilder, RenderedListItem);
+// impl_from_dynamic!(Rendered, RenderedDiff);

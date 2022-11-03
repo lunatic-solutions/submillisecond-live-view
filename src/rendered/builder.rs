@@ -1,673 +1,336 @@
+use slotmap::{new_key_type, SlotMap};
+
 use super::{Dynamic, DynamicItems, DynamicList, Dynamics, Rendered, RenderedListItem};
+
+new_key_type! { pub struct NodeId; }
 
 #[derive(Debug)]
 pub struct RenderedBuilder {
+    nodes: SlotMap<NodeId, Node>,
+    last_node: NodeId,
+}
+
+#[derive(Debug)]
+struct Node {
+    parent: NodeId,
+    value: NodeValue,
+}
+
+#[derive(Debug)]
+enum NodeValue {
+    Items(ItemsNode),
+    List(ListNode),
+}
+
+#[derive(Debug, Default)]
+struct ItemsNode {
     statics: Vec<String>,
-    dynamics: Dynamics<Self, RenderedListItemBuilder>,
+    dynamics: Vec<DynamicNode>,
     templates: Vec<Vec<String>>,
-    nested: bool,
-    loop_count: usize,
 }
 
 #[derive(Debug)]
-pub struct RenderedListItemBuilder {
-    statics: usize,
-    dynamics: Vec<Dynamic<Self>>,
-    nested: bool,
-    level: usize,
+struct ListNode {
+    statics: Vec<String>,
+    dynamics: Vec<Vec<DynamicNode>>,
+    iteration: usize,
 }
 
 #[derive(Debug)]
-pub enum LastItem<'a> {
-    Items(&'a mut RenderedBuilder),
-    List(&'a mut RenderedListItemBuilder),
-}
-
-impl LastItem<'_> {
-    fn as_ptr(&mut self) -> LastItemPtr {
-        match self {
-            LastItem::Items(items) => LastItemPtr::Items(*items),
-            LastItem::List(list) => LastItemPtr::List(*list),
-        }
-    }
-}
-
-enum LastItemPtr {
-    Items(*mut RenderedBuilder),
-    List(*mut RenderedListItemBuilder),
-}
-
-impl LastItemPtr {
-    unsafe fn deref<'a>(self) -> LastItem<'a> {
-        match self {
-            LastItemPtr::Items(items) => LastItem::Items(&mut *items),
-            LastItemPtr::List(list) => LastItem::List(&mut *list),
-        }
-    }
-}
-
-pub trait BuildRendered {
-    fn push_nested(&mut self, nested: Rendered);
-    fn push_static(&mut self, s: &str);
-    fn push_dynamic(&mut self, s: String);
-    fn push_if_frame(&mut self);
-    fn push_for_frame(&mut self);
-    fn pop_frame(&mut self);
+enum DynamicNode {
+    String(String),
+    Nested(NodeId),
 }
 
 impl RenderedBuilder {
-    pub(crate) fn new() -> Self {
-        RenderedBuilder {
-            statics: vec![],
-            dynamics: Dynamics::Items(DynamicItems(vec![])),
-            templates: vec![],
-            nested: false,
-            loop_count: 0,
+    pub fn new() -> Self {
+        let mut nodes = SlotMap::with_key();
+        let last_node = nodes.insert(Node::new(
+            NodeId::default(),
+            NodeValue::Items(ItemsNode::default()),
+        ));
+        RenderedBuilder { nodes, last_node }
+    }
+
+    pub fn build(mut self) -> Rendered {
+        let root = self.nodes.remove(self.last_node).unwrap();
+        root.build(&mut self)
+    }
+
+    // pub fn push_nested(&mut self, other: Rendered) {
+
+    // }
+
+    pub fn push_static(&mut self, s: &str) {
+        self.last_node_mut().push_static(s)
+    }
+
+    pub fn push_dynamic(&mut self, s: String) {
+        self.last_node_mut().push_dynamic(s)
+    }
+
+    pub fn push_if_frame(&mut self) {
+        self.push_dynamic_node(NodeValue::Items(ItemsNode::default()));
+    }
+
+    pub fn push_for_frame(&mut self) {
+        self.push_dynamic_node(NodeValue::List(ListNode::default()));
+    }
+
+    pub fn push_for_item(&mut self) {
+        let last_node = self.last_node_mut();
+        match &mut last_node.value {
+            NodeValue::Items(_) => {
+                panic!("push_for_item cannot be called outside the context of a for loop");
+            }
+            NodeValue::List(list) => {
+                list.iteration = list.iteration.wrapping_add(1); // First iteration will be 0
+                list.dynamics.push(vec![]);
+            }
         }
     }
 
-    pub fn build(self) -> Rendered {
-        let dynamics = match self.dynamics {
-            Dynamics::Items(items) => Dynamics::Items(DynamicItems(
-                items.0.into_iter().map(Dynamic::from).collect(),
-            )),
-            Dynamics::List(list) => Dynamics::List(DynamicList(
-                list.0
-                    .into_iter()
-                    .map(|list| list.into_iter().map(Dynamic::from).collect())
-                    .collect(),
-            )),
-        };
+    pub fn pop_for_item(&mut self) {}
+
+    pub fn pop_frame(&mut self) {
+        if let Some(parent_id) = self.parent_of(self.last_node) {
+            self.last_node = parent_id;
+        }
+    }
+
+    fn last_node_mut(&mut self) -> &mut Node {
+        self.nodes.get_mut(self.last_node).unwrap()
+    }
+
+    fn parent_of(&mut self, id: NodeId) -> Option<NodeId> {
+        self.nodes.get(id).map(|node| node.parent)
+    }
+
+    fn push_dynamic_node(&mut self, value: NodeValue) {
+        let id = self.nodes.insert(Node::new(self.last_node, value));
+        let last_node = self.last_node_mut();
+        match &mut last_node.value {
+            NodeValue::Items(items) => {
+                items.dynamics.push(DynamicNode::Nested(id));
+            }
+            NodeValue::List(list) => match list.dynamics.last_mut() {
+                Some(last_list) => last_list.push(DynamicNode::Nested(id)),
+                None => list.dynamics.push(vec![DynamicNode::Nested(id)]),
+            },
+        }
+        self.last_node = id;
+    }
+}
+
+impl Default for RenderedBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Node {
+    fn new(parent: NodeId, value: NodeValue) -> Self {
+        Node { parent, value }
+    }
+
+    fn build(self, tree: &mut RenderedBuilder) -> Rendered {
+        match self.value {
+            NodeValue::Items(items) => items.build(tree),
+            NodeValue::List(list) => list.build(tree),
+        }
+    }
+
+    fn push_static(&mut self, s: &str) {
+        match &mut self.value {
+            NodeValue::Items(items) => items.push_static(s),
+            NodeValue::List(list) => list.push_static(s),
+        }
+    }
+
+    fn push_dynamic(&mut self, s: String) {
+        match &mut self.value {
+            NodeValue::Items(items) => items.push_dynamic(s),
+            NodeValue::List(list) => list.push_dynamic(s),
+        }
+    }
+}
+
+impl ItemsNode {
+    fn build(mut self, tree: &mut RenderedBuilder) -> Rendered {
+        let dynamics: Vec<_> = self
+            .dynamics
+            .into_iter()
+            .map(|dynamic| dynamic.build_items(tree))
+            .collect();
+
+        insert_empty_strings(&mut self.statics, dynamics.len());
 
         Rendered {
             statics: self.statics,
-            dynamics,
+            dynamics: Dynamics::Items(DynamicItems(dynamics)),
             templates: self.templates,
         }
     }
 
-    fn next(&mut self) -> Option<LastItem> {
-        match &mut self.dynamics {
-            Dynamics::Items(inner_items) => inner_items.last_mut().and_then(|last| match last {
-                Dynamic::String(_) => None,
-                Dynamic::Nested(nested) => Some(LastItem::Items(nested)),
-            }),
-            Dynamics::List(list) => {
-                list.last_mut()
-                    .and_then(|last| last.last_mut())
-                    .and_then(|last| match last {
-                        Dynamic::String(_) => None,
-                        Dynamic::Nested(nested) => Some(LastItem::List(nested)),
-                    })
-            }
+    fn push_static(&mut self, s: &str) {
+        push_or_extend_static_string(&mut self.statics, self.dynamics.len(), s);
+    }
+
+    fn push_dynamic(&mut self, s: String) {
+        if self.statics.is_empty() {
+            self.statics.push(String::new());
+        }
+
+        self.dynamics.push(DynamicNode::String(s));
+    }
+}
+
+impl ListNode {
+    fn build(self, tree: &mut RenderedBuilder) -> Rendered {
+        let mut templates = vec![];
+
+        let dynamics: Vec<Vec<_>> = self
+            .dynamics
+            .into_iter()
+            .map(|dynamics| {
+                dynamics
+                    .into_iter()
+                    .map(|dynamic| dynamic.build_list(tree, &mut templates))
+                    .collect()
+            })
+            .collect();
+
+        Rendered {
+            statics: self.statics,
+            dynamics: Dynamics::List(DynamicList(dynamics)),
+            templates,
         }
     }
 
-    pub fn last_mut(&mut self) -> LastItem {
-        enum LastItemPtr {
-            Items(*mut RenderedBuilder),
-            List(*mut RenderedListItemBuilder),
-        }
-
-        let mut current = LastItemPtr::Items(self as *mut Self);
-
-        loop {
-            // SAFETY: Rust doesn't like this, though it is safe in this case.
-            // This works in polonius, but not Rust's default borrow checker.
-            unsafe {
-                match current {
-                    LastItemPtr::Items(items) => {
-                        if !(*items).nested {
-                            return LastItem::Items(&mut *items);
-                        }
-
-                        match &mut (*items).dynamics {
-                            Dynamics::Items(inner_items) => {
-                                let next = inner_items.last_mut().and_then(|last| match last {
-                                    Dynamic::String(_) => None,
-                                    Dynamic::Nested(nested) => Some(nested),
-                                });
-
-                                match next {
-                                    Some(next) => {
-                                        current = LastItemPtr::Items(next);
-                                    }
-                                    None => {
-                                        return LastItem::Items(&mut *items);
-                                    }
-                                }
-                            }
-                            Dynamics::List(list) => {
-                                let next =
-                                    list.0.last_mut().and_then(|last| last.last_mut()).and_then(
-                                        |last| match last {
-                                            Dynamic::String(_) => None,
-                                            Dynamic::Nested(nested) => Some(nested),
-                                        },
-                                    );
-
-                                match next {
-                                    Some(next) => {
-                                        current = LastItemPtr::List(next);
-                                    }
-                                    None => {
-                                        return LastItem::Items(&mut *items);
-                                    }
-                                }
-                            }
-                        };
-                    }
-                    LastItemPtr::List(list) => {
-                        if !(*list).nested {
-                            return LastItem::List(&mut *list);
-                        }
-
-                        let next = (*list).dynamics.last_mut().and_then(|last| match last {
-                            Dynamic::String(_) => None,
-                            Dynamic::Nested(nested) => Some(nested),
-                        });
-
-                        match next {
-                            Some(next) => {
-                                current = LastItemPtr::List(next);
-                            }
-                            None => {
-                                return LastItem::List(&mut *list);
-                            }
-                        }
-                    }
-                }
-            }
+    fn push_static(&mut self, s: &str) {
+        if self.iteration == 0 {
+            push_or_extend_static_string(&mut self.statics, self.dynamics.len(), s);
         }
     }
 
-    fn last_items_mut(&mut self) -> &mut Self {
-        let mut current = self as *mut Self;
-
-        loop {
-            // SAFETY: Rust doesn't like this, though it is safe in this case.
-            // This works in polonius, but not Rust's default borrow checker.
-            unsafe {
-                if !(*current).nested {
-                    return &mut *current;
-                }
-
-                let next = match &mut (*current).dynamics {
-                    Dynamics::Items(items) => items.last_mut().and_then(|last| match last {
-                        Dynamic::String(_) => None,
-                        Dynamic::Nested(nested) => Some(nested),
-                    }),
-                    Dynamics::List(_) => None,
-                };
-                match next {
-                    Some(next) => {
-                        current = next;
-                    }
-                    None => {
-                        return &mut *current;
-                    }
-                }
-            }
-        }
+    fn push_dynamic(&mut self, s: String) {
+        self.dynamics
+            .last_mut()
+            .unwrap()
+            .push(DynamicNode::String(s));
     }
+}
 
-    fn last_parent_mut(&mut self) -> Option<LastItem> {
-        if !self.nested {
-            return None;
-        }
-
-        let mut current = LastItemPtr::Items(self as *mut Self);
-
-        loop {
-            unsafe {
-                let next = match current {
-                    LastItemPtr::Items(items) => (*items).next(),
-                    LastItemPtr::List(list) => (*list).next().map(LastItem::List),
-                };
-
-                match next {
-                    Some(LastItem::Items(RenderedBuilder { nested: false, .. }))
-                    | Some(LastItem::List(RenderedListItemBuilder { nested: false, .. }))
-                    | None => {
-                        return Some(current.deref());
-                    }
-                    Some(mut next) => {
-                        current = next.as_ptr();
-                    }
-                }
-            }
+impl Default for ListNode {
+    fn default() -> Self {
+        Self {
+            statics: Default::default(),
+            dynamics: Default::default(),
+            iteration: usize::MAX,
         }
     }
 }
 
-impl RenderedBuilder {
-    pub fn push_nested(&mut self, _nested: Rendered) {
-        // let last = self.last_mut();
-        // let nested: RenderedBuilder = nested.into();
-        // let mut statics = nested.statics.into_iter();
-        // if let Some(first_static) = statics.next() {
-        //     match last.statics.last_mut() {
-        //         Some(static_string) => static_string.push_str(&first_static),
-        //         None => last.statics.push(first_static),
-        //     }
-        //     last.statics.extend(statics);
-        // }
-        // last.dynamics.extend(nested.dynamics);
-    }
-
-    pub fn push_static(&mut self, s: &str) {
-        let last = self.last_mut();
-        match last {
-            LastItem::Items(last) => match &mut last.dynamics {
-                Dynamics::Items(items) => {
-                    if last.nested && items.is_empty() {
-                        println!("Push A: {s}");
-                        items.push(Dynamic::Nested(RenderedBuilder {
-                            statics: vec![s.to_string()],
-                            dynamics: Dynamics::Items(DynamicItems(vec![])),
-                            templates: vec![],
-                            nested: false,
-                            loop_count: 0,
-                        }));
-                    } else if last.statics.len() >= items.len() {
-                        println!("Push B: {s}");
-                        match last.statics.last_mut() {
-                            Some(static_string) => static_string.push_str(s),
-                            None => last.statics.push(s.to_string()),
-                        }
-                    } else {
-                        println!("Push C: {s}");
-                        last.statics.push(s.to_string());
-                    }
-                }
-                Dynamics::List(list) => {
-                    if last.nested {
-                        last.templates.insert(0, vec![s.to_string()]);
-                    } else if last.loop_count < 1 {
-                        last.statics.push(s.to_string());
-                    }
-                }
-            },
-            LastItem::List(last) => {
-                // TODO Last static
-                let last_items = self.last_items_mut();
-                // if last_items.len() < last
-                // dbg!(last_items.templates.len(), )
-                match last_items.templates.first_mut() {
-                    Some(last_item) => {
-                        // if last_item.len() >= last_dynamics_len {
-                        //     match last_item.last_mut() {
-                        //         Some(static_string) => static_string.push_str(s),
-                        //         None => last_item.push(s.to_string()),
-                        //     }
-                        // } else {
-                        // dbg!(&last_item);
-                        last_item.push(s.to_string());
-                        // }
-                        // println!("Pushh {s}");
-                    }
-                    None => {
-                        last_items.templates.insert(0, vec![s.to_string()]);
-                        // println!("Pushhhhhh {s}");
-                    }
-                }
-            }
-        }
-    }
-
-    pub fn push_dynamic(&mut self, s: String) {
-        let last = self.last_mut();
-        match last {
-            LastItem::Items(last) => match &mut last.dynamics {
-                Dynamics::Items(items) => {
-                    if last.nested && items.is_empty() {
-                        items.push(Dynamic::Nested(RenderedBuilder {
-                            statics: vec![String::new(), String::new()],
-                            dynamics: Dynamics::Items(DynamicItems(vec![Dynamic::String(s)])),
-                            templates: vec![],
-                            nested: false,
-                            loop_count: 0,
-                        }));
-                    } else {
-                        items.push(Dynamic::String(s));
-                        last.statics.push(String::new());
-                        if last.statics.len() <= items.len() {
-                            last.statics.push(String::new());
-                        }
-                    }
-                }
-                Dynamics::List(list) => match list.0.last_mut() {
-                    Some(list_last) => {
-                        if last.nested {
-                            list_last.push(Dynamic::Nested(RenderedListItemBuilder {
-                                statics: last.templates.len() - 1,
-                                dynamics: vec![Dynamic::String(s)],
-                                nested: true,
-                                level: 0,
-                            }));
+impl DynamicNode {
+    fn build_items(self, tree: &mut RenderedBuilder) -> Dynamic<Rendered> {
+        match self {
+            DynamicNode::String(s) => Dynamic::String(s),
+            DynamicNode::Nested(id) => {
+                let mut nested = tree.nodes.remove(id).unwrap().build(tree);
+                match nested.dynamics {
+                    Dynamics::Items(ref items) => {
+                        if nested.statics.is_empty() && items.is_empty() {
+                            Dynamic::String(String::new())
                         } else {
-                            list_last.push(Dynamic::String(s));
-                        }
-                    }
-                    None => {
-                        unreachable!("push_for_item should've created an item for us");
-                    }
-                },
-            },
-            LastItem::List(last) => {
-                if last.nested {
-                    let static_index = last.statics;
-                    last.statics += 1;
-                    last.dynamics.push(Dynamic::Nested(RenderedListItemBuilder {
-                        statics: static_index,
-                        dynamics: vec![Dynamic::String(s)],
-                        nested: true,
-                        level: last.level + 1,
-                    }));
-                } else {
-                    last.dynamics.push(Dynamic::String(s));
-                }
-            }
-        }
-    }
-
-    pub fn push_if_frame(&mut self) {
-        let last = self.last_mut();
-        match last {
-            LastItem::Items(last) => {
-                last.nested = true;
-                if last.statics.is_empty() {
-                    last.statics.push(String::new());
-                }
-            }
-            LastItem::List(last) => {
-                // TODO
-                last.nested = true;
-                self.last_items_mut().templates.insert(0, vec![]);
-            }
-        }
-    }
-
-    pub fn push_for_frame(&mut self) {
-        let last = self.last_mut();
-        match last {
-            LastItem::Items(last) => match &mut last.dynamics {
-                Dynamics::Items(items) => {
-                    last.nested = true;
-                    if last.statics.is_empty() {
-                        last.statics.push(String::new());
-                    }
-                    items.push(Dynamic::Nested(RenderedBuilder {
-                        statics: vec![],
-                        dynamics: Dynamics::List(DynamicList(vec![])),
-                        templates: vec![],
-                        nested: false,
-                        loop_count: 0,
-                    }));
-                    last.statics.push(String::new());
-                }
-                Dynamics::List(list) => todo!(),
-            },
-            LastItem::List(last) => todo!(),
-        }
-    }
-
-    pub fn push_for_item(&mut self) {
-        let last = self.last_mut();
-        match last {
-            LastItem::Items(last) => match &mut last.dynamics {
-                Dynamics::Items(items) => {}
-                Dynamics::List(list) => {
-                    list.0.push(vec![]);
-                }
-            },
-            LastItem::List(last) => {
-                // TODO
-            }
-        }
-    }
-
-    pub fn pop_for_item(&mut self) {
-        let last = self.last_mut();
-        match last {
-            LastItem::Items(last) => {
-                last.loop_count += 1;
-            }
-            LastItem::List(last) => {
-                // dbg!(&last);
-                // todo
-                // if let Some(first_template) =
-                // self.last_items_mut().templates.first_mut() {
-                //     first_template.push(String::new());
-                // }
-            }
-        }
-    }
-
-    pub fn pop_frame(&mut self) {
-        let last = self.last_mut();
-        match last {
-            LastItem::Items(last) => {
-                let nested = last.nested;
-
-                match &mut last.dynamics {
-                    Dynamics::Items(items) => {
-                        if last.statics.len() <= items.len() {
-                            last.statics.push(String::new());
-                        }
-
-                        let parent = self.last_parent_mut();
-                        if let Some(parent) = parent {
-                            match parent {
-                                LastItem::Items(parent) => {
-                                    parent.nested = false;
-                                    match &mut parent.dynamics {
-                                        Dynamics::Items(items) => {
-                                            parent.nested = false;
-                                            if items.is_empty() {
-                                                items.push(Dynamic::String(String::new()));
-                                            }
-                                            if parent.statics.len() <= items.len() {
-                                                parent.statics.push(String::new());
-                                            }
-                                        }
-                                        Dynamics::List(_) => todo!(),
-                                    }
-                                }
-                                LastItem::List(_) => todo!(),
-                            }
+                            insert_empty_strings(&mut nested.statics, items.len());
+                            Dynamic::Nested(nested)
                         }
                     }
                     Dynamics::List(list) => {
-                        if let Some(list_last) = list.last_mut() {
-                            if nested && list_last.len() < last.statics.len() {
-                                list_last.push(Dynamic::String(String::new()));
-                            }
+                        let dynamics_len = list.first().map(|first| first.len()).unwrap_or(0);
+                        if nested.statics.is_empty() && dynamics_len == 0 {
+                            Dynamic::String(String::new())
+                        } else {
+                            insert_empty_strings(&mut nested.statics, dynamics_len);
 
-                            if last.statics.len() <= list_last.len() {
-                                last.statics.push(String::new());
-                            }
+                            Dynamic::Nested(Rendered {
+                                statics: nested.statics,
+                                dynamics: Dynamics::List(list),
+                                templates: nested.templates,
+                            })
                         }
+                    }
+                }
+            }
+        }
+    }
 
-                        let parent = self.last_parent_mut();
-                        if let Some(parent) = parent {
-                            match parent {
-                                LastItem::Items(parent) => {
-                                    parent.nested = false;
-                                    match &mut parent.dynamics {
-                                        Dynamics::Items(items) => {
-                                            if items.is_empty() {
-                                                items.push(Dynamic::String(String::new()));
-                                            }
-                                            if parent.statics.len() <= items.len() {
-                                                parent.statics.push(String::new());
-                                            }
-                                        }
-                                        Dynamics::List(list) => {
-                                            // dbg!(list);
-                                            // dbg!(self);
-                                        }
+    fn build_list(
+        self,
+        tree: &mut RenderedBuilder,
+        templates: &mut Vec<Vec<String>>,
+    ) -> Dynamic<RenderedListItem> {
+        match self {
+            DynamicNode::String(s) => Dynamic::String(s),
+            DynamicNode::Nested(id) => {
+                let node = tree.nodes.remove(id).unwrap();
+                match node.value {
+                    NodeValue::Items(mut items) => {
+                        if items.statics.is_empty() && items.dynamics.is_empty() {
+                            Dynamic::String(String::new())
+                        } else {
+                            let dynamics: Vec<_> = items
+                                .dynamics
+                                .into_iter()
+                                .map(|dynamic| dynamic.build_list(tree, templates))
+                                .collect();
+
+                            insert_empty_strings(&mut items.statics, dynamics.len());
+                            let statics = templates
+                                .iter()
+                                .enumerate()
+                                .find_map(|(i, template)| {
+                                    if vecs_match(template, &items.statics) {
+                                        Some(i)
+                                    } else {
+                                        None
                                     }
-                                }
-                                LastItem::List(_) => todo!(),
-                            }
-                        }
+                                })
+                                .unwrap_or_else(|| {
+                                    templates.push(items.statics);
+                                    templates.len() - 1
+                                });
 
-                        // let parent = self.last_parent_mut();
-                        // if let Some(parent) = parent {
-                        //     match parent {
-                        //         LastItem::Items(items) => {
-                        //             items.nested = false;
-                        //         }
-                        //         LastItem::List(list) => {
-                        //             list.nested = false;
-                        //         }
-                        //     }
-                        // }
-
-                        // let items = self.last_items_mut();
-                        // items.
-                        // if let Some(parent) = parent {
-                        //     match parent {
-                        //         LastItem::Items(parent) => {
-                        //             parent.nested = false;
-                        //             match &mut parent.dynamics {
-                        //                 Dynamics::Items(items) => {
-                        //                     parent.nested = false;
-                        //                     if items.is_empty() {
-                        //
-                        // items.push(Dynamic::String(String::new()));
-                        //                     }
-                        //                     if parent.statics.len() <=
-                        // items.len() {
-                        // parent.statics.push(String::new());
-                        //                     }
-                        //                 }
-                        //                 Dynamics::List(_) => todo!(),
-                        //             }
-                        //         }
-                        //         LastItem::List(_) => todo!(),
-                        //     }
-                        // }
-                    }
-                }
-
-                // Parent
-            }
-            LastItem::List(last) => {
-                last.nested = false;
-
-                // dbg!(&last.dynamics.len());
-                // dbg!(&self.last_items_mut().templates);
-
-                let parent = self.last_parent_mut();
-                if let Some(parent) = parent {
-                    match parent {
-                        LastItem::Items(parent) => {
-                            parent.nested = false;
-                            // match &mut parent.dynamics {
-                            //     Dynamics::Items(items) => {
-                            //         parent.nested = false;
-                            //         if items.is_empty() {
-                            //
-                            // items.push(Dynamic::String(String::new()));
-                            //         }
-                            //         if parent.statics.len() <= items.len() {
-                            //             parent.statics.push(String::new());
-                            //         }
-                            //     }
-                            //     Dynamics::List(_) => todo!(),
-                            // }
-                        }
-                        LastItem::List(list) => {
-                            // dbg!(list.dynamics.len());
-                            // dbg!(&self
-                            //     .last_items_mut()
-                            //     .templates
-                            //     .last()
-                            //     .map(|first| first.len()));
-
-                            // if items.is_empty() {
-                            //     items.push(Dynamic::String(String::new()));
-                            // }
-                            list.nested = false;
-                            let dynamics_len = list.dynamics.len();
-                            let templates = &mut self.last_items_mut().templates;
-                            if let Some(first_template) = templates.last_mut() {
-                                if first_template.len() <= dynamics_len {
-                                    first_template.push(String::new());
-                                }
-                            }
-                            // if parent.statics.len() <= items.len() {
-                            //     parent.statics.push(String::new());
-                            // }
+                            Dynamic::Nested(RenderedListItem { statics, dynamics })
                         }
                     }
+                    NodeValue::List(_) => todo!(),
                 }
-
-                // dbg!(&self.last_items_mut().templates);
-                // todo
-                // match last.dynamics.last() {
-                //     Some(Dynamic::Nested(list_last)) => {
-                //         println!("Here");
-                //     }
-                //     _ => todo!(),
-                // }
-
-                // let last_items = self.last_items_mut();
-                // if let Some(first_template) =
-                // last_items.templates.first_mut() {
-                //     if list_last.len() < first_template.len() {
-                //         list_last.push(Dynamic::String(String::new()));
-                //     }
-                //     // if last_items.nested {
-                //     first_template.push(String::new());
-                //     // }
-                // }
-                // last_items.templates.
             }
         }
     }
 }
 
-impl RenderedListItemBuilder {
-    fn next(&mut self) -> Option<&mut RenderedListItemBuilder> {
-        self.dynamics.last_mut().and_then(|last| match last {
-            Dynamic::String(_) => None,
-            Dynamic::Nested(nested) => Some(nested),
-        })
-    }
-}
-
-impl From<Rendered> for RenderedBuilder {
-    fn from(rendered: Rendered) -> Self {
-        // RenderedBuilder {
-        //     statics: rendered.statics,
-        //     dynamics: rendered.dynamics.into(),
-        //     nested: false,
-        // }
-        todo!()
-    }
-}
-
-impl From<RenderedBuilder> for Rendered {
-    fn from(rendered: RenderedBuilder) -> Self {
-        rendered.build()
-    }
-}
-
-impl From<RenderedListItemBuilder> for RenderedListItem {
-    fn from(list: RenderedListItemBuilder) -> Self {
-        RenderedListItem {
-            statics: list.statics,
-            dynamics: list
-                .dynamics
-                .into_iter()
-                .map(|item| match item {
-                    Dynamic::String(s) => Dynamic::String(s),
-                    Dynamic::Nested(n) => Dynamic::Nested(n.into()),
-                })
-                .collect(),
+fn insert_empty_strings(statics: &mut Vec<String>, dynamics_len: usize) {
+    if dynamics_len > 0 {
+        let missing_empty_string_count = dynamics_len + 1 - statics.len();
+        for _ in 0..missing_empty_string_count {
+            statics.push(String::new());
         }
     }
+}
+
+fn push_or_extend_static_string(statics: &mut Vec<String>, dynamics_len: usize, s: &str) {
+    // If statics length is >= dynamics length, we should extend the previous static
+    // string.
+    let statics_len = statics.len();
+    match statics.last_mut() {
+        Some(static_string) if statics_len > dynamics_len => static_string.push_str(s),
+        _ => statics.push(s.to_string()),
+    }
+}
+
+fn vecs_match<T: PartialEq>(a: &Vec<T>, b: &Vec<T>) -> bool {
+    let matching = a.iter().zip(b.iter()).filter(|&(a, b)| a == b).count();
+    matching == a.len() && matching == b.len()
 }
