@@ -20,20 +20,6 @@ struct Todos {
     todos: Vec<Todo>,
 }
 
-impl Todos {
-    fn render_header(&self) -> Rendered {
-        html! {}
-    }
-
-    fn render_main(&self) -> Rendered {
-        html! {}
-    }
-
-    fn render_footer(&self) -> Rendered {
-        html! {}
-    }
-}
-
 impl LiveView for Todos {
     type Events = (
         Add,
@@ -48,137 +34,25 @@ impl LiveView for Todos {
     fn mount(_uri: Uri) -> Self {
         Todos {
             filter: Filter::All,
-            todos: vec![Todo {
-                id: Uuid::new_v4(),
-                title: "Eat pie".to_string(),
-                completed: false,
-                editing: false,
-            }],
+            todos: vec![Todo::new("Hello".to_string())],
         }
     }
 
     fn render(&self) -> Rendered {
-        let visible_todos: Vec<_> = match self.filter {
-            Filter::All => self.todos.iter().collect(),
-            Filter::Active => self.todos.iter().filter(|todo| !todo.completed).collect(),
-            Filter::Completed => self.todos.iter().filter(|todo| todo.completed).collect(),
-        };
-
-        let remaining_todos = self.todos.iter().filter(|todo| !todo.completed).count();
-        let filter_links = [
-            ("All", Filter::All),
-            ("Active", Filter::Active),
-            ("Completed", Filter::Completed),
-        ]
-        .into_iter()
-        .map(|(label, filter)| (label, filter, filter == self.filter));
-
-        html! {
+        let rendered = html! {
             section.todoapp {
-                header.header {
-                    h1 { "todos" }
-
-                    form #newtodo
-                        method="post"
-                        autocapitalize="off"
-                        autocomplete="off"
-                        autocorrect="off"
-                        spellcheck="false"
-                        url="#"
-                        @submit=(Add)
-                    {
-                        i {
-                            input #newtodo_text .new-todo autofocus name="title" placeholder="What needs to be done?" type="text";
-                        }
-                        button.hidden type="submit" { "submit" }
-                    }
-                }
+                @(self.render_header())
 
                 @if !self.todos.is_empty() {
-                    section.main {
-                        input #toggle-all.toggle-all type="checkbox";
-                        label for="toggle-all" { "Mark all as complete" }
-                        ul.todo-list {
-                            @for todo in visible_todos {
-                                @let classes = match (todo.completed, todo.editing) {
-                                    (true, true) => "completed editing",
-                                    (true, false) => "completed",
-                                    (false, true) => "editing",
-                                    (false, false) => "",
-                                };
-                                li class=(classes) {
-                                    @let id = todo.id.to_string();
-                                    form
-                                        method="post"
-                                        autocapitalize="off"
-                                        autocomplete="off"
-                                        autocorrect="off"
-                                        spellcheck="false"
-                                        url="#"
-                                        @submit=(Edit)
-                                    {
-                                        div.view {
-                                            input.toggle
-                                                type="checkbox"
-                                                checked[todo.completed]
-                                                :id=(id)
-                                                @click=(ToggleEdit);
-                                            label :id=(id) @click=(ToggleEdit) {
-                                                (todo.title)
-                                            }
-                                            button.destroy :id=(id) type="button" @click=(Remove) {}
-                                        }
-                                        input type="hidden" name="id" value=(id);
-                                        input.edit name="title" value=(todo.title);
-                                    }
-                                }
-
-                            }
-                        }
-                    }
-
-                    section.footer {
-                        span.todo-count {
-                            strong { (remaining_todos) }
-                            " item(s) left"
-                        }
-
-                        ul.filters {
-                            @for (label, filter, selected) in filter_links {
-                                li {
-                                    @let selected_class = if selected { "selected" } else { "" };
-                                    @let filter_value = serde_json::to_string(&filter).unwrap();
-                                    a
-                                        class=(selected_class)
-                                        href={"#/" (label)}
-                                        :filter=(filter_value.trim_matches('"'))
-                                        @click=(SetFilter)
-                                    {
-                                        (label)
-                                    }
-                                }
-                            }
-                        }
-
-                        @if remaining_todos > 0 {
-                            button.clear-completed @click=(ClearCompleted) { "Clear completed" }
-                        }
-                    }
-
-                    footer.info {
-                        p { "Double-click to edit a todo" }
-                        p {
-                            "Created by "
-                            a href="https://github.com/tqwewe" { "Ari Seyhun" }
-                        }
-                        p {
-                            "Part of "
-                            a href="https://github.com/lunatic-solutions/submillisecond-live-view" { "Submillisecond Live View" }
-                        }
-                    }
+                    @(self.render_main())
+                    @(self.render_footer())
                 }
             }
-        }
+        };
+
+        dbg!(&rendered);
+
+        rendered
     }
 
     fn styles() -> &'static [&'static str] {
@@ -298,4 +172,134 @@ enum Filter {
     All,
     Active,
     Completed,
+}
+
+impl Todos {
+    fn render_header(&self) -> Rendered {
+        html! {
+            header.header {
+                h1 { "todos" }
+
+                form #newtodo
+                    method="post"
+                    autocapitalize="off"
+                    autocomplete="off"
+                    autocorrect="off"
+                    spellcheck="false"
+                    url="#"
+                    @submit=(Add)
+                {
+                    i {
+                        input #newtodo_text .new-todo autofocus name="title" placeholder="What needs to be done?" type="text";
+                    }
+                    button.hidden type="submit" { "submit" }
+                }
+            }
+        }
+    }
+
+    fn render_main(&self) -> Rendered {
+        let visible_todos: Vec<_> = match self.filter {
+            Filter::All => self.todos.iter().collect(),
+            Filter::Active => self.todos.iter().filter(|todo| !todo.completed).collect(),
+            Filter::Completed => self.todos.iter().filter(|todo| todo.completed).collect(),
+        };
+
+        html! {
+            section.main {
+                input #toggle-all.toggle-all type="checkbox";
+                label for="toggle-all" { "Mark all as complete" }
+                ul.todo-list {
+                    @for todo in visible_todos {
+                        @let classes = match (todo.completed, todo.editing) {
+                            (true, true) => "completed editing",
+                            (true, false) => "completed",
+                            (false, true) => "editing",
+                            (false, false) => "",
+                        };
+                        li class=(classes) {
+                            @let id = todo.id.to_string();
+                            form
+                                method="post"
+                                autocapitalize="off"
+                                autocomplete="off"
+                                autocorrect="off"
+                                spellcheck="false"
+                                url="#"
+                                @submit=(Edit)
+                            {
+                                div.view {
+                                    input.toggle
+                                        type="checkbox"
+                                        checked[todo.completed]
+                                        :id=(id)
+                                        @click=(ToggleEdit);
+                                    label :id=(id) @click=(ToggleEdit) {
+                                        (todo.title)
+                                    }
+                                    button.destroy :id=(id) type="button" @click=(Remove) {}
+                                }
+                                input type="hidden" name="id" value=(id);
+                                input.edit name="title" value=(todo.title);
+                            }
+                        }
+
+                    }
+                }
+            }
+        }
+    }
+
+    fn render_footer(&self) -> Rendered {
+        let remaining_todos = self.todos.iter().filter(|todo| !todo.completed).count();
+        let filter_links = [
+            ("All", Filter::All),
+            ("Active", Filter::Active),
+            ("Completed", Filter::Completed),
+        ]
+        .into_iter()
+        .map(|(label, filter)| (label, filter, filter == self.filter));
+
+        html! {
+            section.footer {
+                span.todo-count {
+                    strong { (remaining_todos) }
+                    " item(s) left"
+                }
+
+                ul.filters {
+                    @for (label, filter, selected) in filter_links {
+                        li {
+                            @let selected_class = if selected { "selected" } else { "" };
+                            @let filter_value = serde_json::to_string(&filter).unwrap();
+                            a
+                                class=(selected_class)
+                                href={"#/" (label)}
+                                :filter=(filter_value.trim_matches('"'))
+                                @click=(SetFilter)
+                            {
+                                (label)
+                            }
+                        }
+                    }
+                }
+
+                @if remaining_todos > 0 {
+                    button.clear-completed @click=(ClearCompleted) { "Clear completed" }
+                }
+            }
+
+            footer.info {
+                p { "Double-click to edit a todo" }
+                p {
+                    "Created by "
+                    a href="https://github.com/tqwewe" { "Ari Seyhun" }
+                }
+                p {
+                    "Part of "
+                    a href="https://github.com/lunatic-solutions/submillisecond-live-view" { "Submillisecond Live View" }
+                }
+            }
+        }
+    }
 }
