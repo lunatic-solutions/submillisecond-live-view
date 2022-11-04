@@ -1,5 +1,6 @@
 pub mod csrf;
 pub mod handler;
+pub mod head;
 mod live_view;
 pub mod manager;
 pub mod maud;
@@ -14,6 +15,7 @@ pub mod prelude {
     pub use submillisecond::http::Uri;
 
     pub use crate::handler::LiveViewRouter;
+    pub use crate::head::*;
     pub use crate::manager::*;
     pub use crate::rendered::Rendered;
     pub use crate::socket::{Socket, SocketError, SocketMessage};

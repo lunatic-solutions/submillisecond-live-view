@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 fn main() -> std::io::Result<()> {
     Application::new(router! {
-        "/" => Todos::handler()
+        GET "/" => Todos::handler()
         "/static" => static_router!("./static")
     })
     .serve("127.0.0.1:3000")
@@ -52,8 +52,10 @@ impl LiveView for Todos {
         rendered
     }
 
-    fn styles() -> &'static [&'static str] {
-        &["/static/todos.css"]
+    fn head() -> Head {
+        Head::defaults()
+            .with_title("LiveView Todos")
+            .with_style(Style::Link("/static/todos.css"))
     }
 }
 

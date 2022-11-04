@@ -17,10 +17,17 @@ use submillisecond::RequestContext;
 use thiserror::Error;
 
 use crate::csrf::CsrfToken;
+use crate::head::{Script, Style};
 use crate::manager::{Join, LiveViewManager, LiveViewManagerResult};
 use crate::rendered::{IntoJson, Rendered};
 use crate::socket::{Event, JoinEvent, Socket};
 use crate::{self as submillisecond_live_view, html, LiveView, PreEscaped, DOCTYPE};
+
+#[cfg(all(debug_assertions, feature = "liveview_js"))]
+const LIVEVIEW_JS: &str = include_str!("../liveview-debug.js");
+
+#[cfg(all(not(debug_assertions), feature = "liveview_js"))]
+const LIVEVIEW_JS: &str = include_str!("../liveview-release.js");
 
 #[derive(Serialize, Deserialize)]
 #[serde(bound = "")]
@@ -72,21 +79,33 @@ where
 
         let content = T::mount(req.uri().clone(), None).render().to_string();
 
+        let head = T::head();
+
         let body = html! {
             (DOCTYPE)
             html lang="en" {
                 head {
-                    meta charset="utf-8";
-                    meta http-equiv="X-UA-Compatible" content="IE=edge";
-                    meta name="viewport" content="width=device-width, initial-scale=1.0";
+                    title { (head.title) }
                     meta name="csrf-token" content=(csrf_token);
-                    title { "submillisecond live view" }
-                    @for style in T::styles() {
-                        link rel="stylesheet" href=(style);
+                    @for meta in &head.meta {
+                        // Dynamic attributes aren't supported yet.
+                        // See <https://github.com/lambda-fairy/maud/issues/240>
+                        @let attrs = meta.attrs.iter().map(|attr| format!("{}=\"{}\"", attr.name, attr.value)).collect::<Vec<_>>().join(" ");
+                        (PreEscaped(format!("<meta {attrs}>")))
                     }
-                    script defer type="text/javascript" src="/static/main.js" {}
-                    @for script in T::scripts() {
-                        script defer type="text/javascript" src=(script) {}
+                    @for style in head.styles {
+                        @match style {
+                            Style::Link(href) => link rel="stylesheet" href=(href);,
+                            Style::Css(css) => style { (PreEscaped(css)) },
+                        }
+                    }
+                    @for script in head.scripts {
+                        @match script {
+                            Script::Link { href, defer } => script defer[defer] type="text/javascript" src=(href) {},
+                            Script::Js(js) => script type="text/javascript" { (PreEscaped(js)) },
+                            #[cfg(feature = "liveview_js")]
+                            Script::LiveView => script type="text/javascript" { (PreEscaped(LIVEVIEW_JS)) },
+                        }
                     }
                 }
                 body {

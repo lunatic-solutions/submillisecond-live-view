@@ -3,10 +3,19 @@ import { Socket } from "phoenix";
 import { LiveSocket } from "phoenix_live_view";
 import topbar from "topbar";
 
-let csrfToken = document
+const csrfToken = document
   .querySelector("meta[name='csrf-token']")
   .getAttribute("content");
-let liveSocket = new LiveSocket("/live", Socket, {
+
+class SocketWrapper {
+  constructor(endPoint, opts) {
+    const socket = new Socket(endPoint, opts);
+    socket.endPoint = endPoint;
+    return socket;
+  }
+}
+
+const liveSocket = new LiveSocket("/", SocketWrapper, {
   params: { _csrf_token: csrfToken },
   metadata: {
     click: (e, t) => ({
@@ -24,7 +33,10 @@ window.addEventListener("phx:page-loading-stop", (info) => topbar.hide());
 liveSocket.connect();
 
 // expose liveSocket on window for web console debug logs and latency simulation:
-// >> liveSocket.enableDebug()
+if (process.env.NODE_ENV !== "production") {
+  liveSocket.enableDebug();
+}
 // >> liveSocket.enableLatencySim(1000)  // enabled for duration of browser session
 // >> liveSocket.disableLatencySim()
+
 window.liveSocket = liveSocket;

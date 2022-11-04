@@ -3,7 +3,6 @@ name = "submillisecond-live-view"
 version = "0.1.0"
 edition = "2021"
 
-
 [dependencies]
 base64 = "0.13"
 const-random = "0.1"
@@ -30,3 +29,7 @@ tungstenite = "0.17"
 
 [dev-dependencies]
 uuid = { version = "1.2", features = ["serde", "v4"] }
+
+[features]
+default = ["liveview_js"]
+liveview_js = []

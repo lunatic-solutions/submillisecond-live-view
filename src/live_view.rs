@@ -4,6 +4,7 @@ use submillisecond::response::Response;
 use submillisecond::RequestContext;
 use thiserror::Error;
 
+use crate::head::Head;
 use crate::rendered::Rendered;
 use crate::socket::{Event, Socket};
 
@@ -15,12 +16,8 @@ pub trait LiveView: Sized {
 
     fn render(&self) -> Rendered;
 
-    fn styles() -> &'static [&'static str] {
-        &[]
-    }
-
-    fn scripts() -> &'static [&'static str] {
-        &[]
+    fn head() -> Head {
+        Head::defaults()
     }
 
     fn not_found(_req: RequestContext) -> Response {
