@@ -132,10 +132,14 @@ impl RenderedBuilder {
         match &mut last_node.value {
             NodeValue::Items(items) => {
                 items.dynamics.push(DynamicNode::Nested(id));
+                items.statics.push(String::new());
             }
             NodeValue::List(list) => match list.dynamics.last_mut() {
                 Some(last_list) => last_list.push(DynamicNode::Nested(id)),
-                None => list.dynamics.push(vec![DynamicNode::Nested(id)]),
+                None => {
+                    list.dynamics.push(vec![DynamicNode::Nested(id)]);
+                    list.statics.push(String::new());
+                }
             },
             NodeValue::Nested(_) => todo!(),
         }

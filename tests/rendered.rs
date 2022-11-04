@@ -27,8 +27,6 @@ fn dynamic() {
         }
     };
 
-    dbg!(&rendered);
-
     assert_eq!(
         rendered,
         Rendered {
@@ -244,14 +242,36 @@ fn if_statement_nested() {
 }
 
 #[lunatic::test]
+fn for_loop_empty() {
+    #[allow(clippy::reversed_empty_ranges)]
+    let rendered = html! {
+        span { "Hello" }
+        @for _ in 0..0 {
+            span { "Hi!" }
+        }
+        span { "world" }
+    };
+
+    assert_eq!(
+        rendered,
+        Rendered {
+            statics: vec![
+                "<span>Hello</span>".to_string(),
+                "<span>world</span>".to_string()
+            ],
+            dynamics: Dynamics::Items(DynamicItems(vec![Dynamic::String("".to_string())])),
+            templates: vec![],
+        }
+    );
+}
+
+#[lunatic::test]
 fn for_loop_statics() {
     let rendered = html! {
         @for _ in 0..3 {
             span { "Hi!" }
         }
     };
-
-    dbg!(&rendered);
 
     assert_eq!(
         rendered,
@@ -300,8 +320,6 @@ fn for_loop_dynamics() {
         }
     };
 
-    dbg!(&rendered);
-
     assert_eq!(
         rendered,
         Rendered {
@@ -334,6 +352,43 @@ fn for_loop_dynamics() {
 }
 
 #[lunatic::test]
+fn for_loop_multiple() {
+    #[allow(clippy::reversed_empty_ranges)]
+    let rendered = html! {
+        span { "Hello" }
+        @for _ in 0..2 {
+            span { "A" }
+        }
+        @for _ in 0..0 {
+            span { "B" }
+        }
+        span { "world" }
+    };
+
+    dbg!(&rendered);
+
+    assert_eq!(
+        rendered,
+        Rendered {
+            statics: vec![
+                "<span>Hello</span>".to_string(),
+                "".to_string(),
+                "<span>world</span>".to_string()
+            ],
+            dynamics: Dynamics::Items(DynamicItems(vec![
+                Dynamic::Nested(Rendered {
+                    statics: vec!["<span>A</span>".to_string()],
+                    dynamics: Dynamics::List(DynamicList(vec![vec![], vec![]])),
+                    templates: vec![]
+                }),
+                Dynamic::String("".to_string()),
+            ])),
+            templates: vec![],
+        }
+    );
+}
+
+#[lunatic::test]
 fn for_loop_with_if() {
     let names = ["John", "Joe", "Jim"];
     let rendered = html! {
@@ -344,8 +399,6 @@ fn for_loop_with_if() {
             }
         }
     };
-
-    dbg!(&rendered);
 
     assert_eq!(
         rendered,
@@ -398,8 +451,6 @@ fn for_loop_with_multiple_ifs() {
             }
         }
     };
-
-    dbg!(&rendered);
 
     assert_eq!(
         rendered,
