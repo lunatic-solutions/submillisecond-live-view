@@ -1,6 +1,3 @@
-use std::time::Duration;
-
-use lunatic::{Mailbox, Process};
 use serde::{Deserialize, Serialize};
 use submillisecond::{router, static_router, Application};
 use submillisecond_live_view::prelude::*;
@@ -21,15 +18,7 @@ struct Counter {
 impl LiveView for Counter {
     type Events = (Increment, Decrement);
 
-    fn mount(_uri: Uri, socket: Option<Socket>) -> Self {
-        if let Some(socket) = socket {
-            // Spawn a background process which increments count every second
-            Process::spawn_link(socket, |mut socket, _: Mailbox<()>| loop {
-                socket.send_event(Increment {}).unwrap();
-                lunatic::sleep(Duration::from_secs(1));
-            });
-        }
-
+    fn mount(_uri: Uri, _socket: Option<Socket>) -> Self {
         Counter { count: 0 }
     }
 
