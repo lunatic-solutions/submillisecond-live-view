@@ -35,6 +35,21 @@ pub struct LiveViewMaud<T> {
     phantom: PhantomData<T>,
 }
 
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+struct Session {
+    csrf_token: String,
+}
+
+#[derive(Clone, Copy, Debug, Error, Serialize, Deserialize)]
+pub enum LiveViewMaudError {
+    #[error("invalid csrf token")]
+    InvalidCsrfToken,
+    #[error("invalid url")]
+    InvalidUrl,
+    #[error("missing url")]
+    MissingUrl,
+}
+
 impl<T> Clone for LiveViewMaud<T> {
     fn clone(&self) -> Self {
         Self {
@@ -175,21 +190,6 @@ where
 
         LiveViewManagerResult::Ok(diff)
     }
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-struct Session {
-    csrf_token: String,
-}
-
-#[derive(Clone, Copy, Debug, Error, Serialize, Deserialize)]
-pub enum LiveViewMaudError {
-    #[error("invalid csrf token")]
-    InvalidCsrfToken,
-    #[error("invalid url")]
-    InvalidUrl,
-    #[error("missing url")]
-    MissingUrl,
 }
 
 const SECRET_DEFAULT: [u8; 32] = const_random!([u8; 32]);

@@ -28,6 +28,8 @@ thiserror = "1.0"
 tungstenite = "0.17"
 
 [dev-dependencies]
+chrono = { version = "0.4", features = ["serde"] }
+chrono-tz = { version = "0.8", features = ["serde"] }
 uuid = { version = "1.2", features = ["serde", "v4"] }
 
 [features]

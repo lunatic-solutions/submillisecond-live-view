@@ -8,6 +8,22 @@ use crate::head::Head;
 use crate::rendered::Rendered;
 use crate::socket::{Event, Socket};
 
+#[derive(Debug, Error)]
+pub enum DeserializeEventError {
+    #[error(transparent)]
+    Form(#[from] serde_qs::Error),
+    #[error(transparent)]
+    Json(#[from] serde_json::Error),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum CheckboxValue {
+    #[serde(rename = "on")]
+    Checked,
+    #[serde(rename = "off")]
+    Unchecked,
+}
+
 /// A live view.
 pub trait LiveView: Sized {
     type Events: EventList<Self>;
@@ -39,14 +55,6 @@ impl<T> EventList<T> for () {
     fn handle_event(_state: &mut T, _event: Event) -> Result<bool, DeserializeEventError> {
         Ok(false)
     }
-}
-
-#[derive(Debug, Error)]
-pub enum DeserializeEventError {
-    #[error(transparent)]
-    Form(#[from] serde_qs::Error),
-    #[error(transparent)]
-    Json(#[from] serde_json::Error),
 }
 
 #[cfg(debug_assertions)]
@@ -124,14 +132,6 @@ impl_event_list!(A, B, C, D, E, F, G, H, I);
 impl_event_list!(A, B, C, D, E, F, G, H, I, J);
 impl_event_list!(A, B, C, D, E, F, G, H, I, J, K);
 impl_event_list!(A, B, C, D, E, F, G, H, I, J, K, L);
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum CheckboxValue {
-    #[serde(rename = "on")]
-    Checked,
-    #[serde(rename = "off")]
-    Unchecked,
-}
 
 impl CheckboxValue {
     pub fn is_checked(&self) -> bool {

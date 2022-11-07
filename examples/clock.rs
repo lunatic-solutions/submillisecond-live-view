@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use chrono::Utc;
-use lunatic::{spawn_link, MailboxResult, Process};
+use lunatic::{Mailbox, MailboxResult, Process};
 use serde::{Deserialize, Serialize};
 use submillisecond::{router, static_router, Application};
 use submillisecond_live_view::prelude::*;
@@ -28,8 +28,7 @@ impl LiveView for Clock {
 
     fn mount(_uri: Uri, socket: Option<Socket>) -> Self {
         let ticker = if let Some(socket) = socket.clone() {
-            // // Spawn a background process which increments count every second
-            let ticker = spawn_link!(|socket, mailbox: Mailbox<u64>| {
+            let ticker = Process::spawn_link(socket, |mut socket, mailbox: Mailbox<u64>| {
                 let mut update_frequency = 500;
                 loop {
                     match mailbox.receive_timeout(Duration::from_millis(update_frequency)) {
@@ -43,6 +42,8 @@ impl LiveView for Clock {
                     }
                 }
             });
+            // TODO: Use this code when <https://github.com/lunatic-solutions/lunatic-rs/pull/88> is merged and published.
+            // let ticker = spawn_link!(|socket, mailbox: Mailbox<u64>| {});
             Some(ticker)
         } else {
             None
