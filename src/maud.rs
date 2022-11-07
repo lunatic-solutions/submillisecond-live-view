@@ -124,7 +124,7 @@ where
 
     fn handle_join(
         &self,
-        socket: &mut Socket,
+        socket: Socket<Self, T>,
         event: JoinEvent,
     ) -> LiveViewManagerResult<Join<T, Self::State, Self::Reply>, Self::Error> {
         let key: Hmac<Sha256> = Hmac::new_from_slice(&secret()).expect("unable to encode secret");
@@ -155,7 +155,7 @@ where
 
         let live_view = T::mount(uri, Some(socket));
         let state = live_view.render();
-        let reply = json!({ "rendered": state.clone().into_json() });
+        let reply = state.clone().into_json();
         LiveViewManagerResult::Ok(Join {
             live_view,
             state,
@@ -168,15 +168,12 @@ where
         _event: Event,
         state: &mut Self::State,
         live_view: &T,
-    ) -> LiveViewManagerResult<Self::Reply, Self::Error> {
+    ) -> LiveViewManagerResult<Option<Self::Reply>, Self::Error> {
         let rendered = live_view.render();
         let diff = state.clone().diff(rendered.clone()); // TODO: Remove these clones
         *state = rendered;
 
-        match diff {
-            Some(diff) => LiveViewManagerResult::Ok(json!({ "diff": diff })),
-            None => LiveViewManagerResult::Ok(json!({})),
-        }
+        LiveViewManagerResult::Ok(diff)
     }
 }
 
@@ -185,7 +182,7 @@ struct Session {
     csrf_token: String,
 }
 
-#[derive(Debug, Error)]
+#[derive(Clone, Copy, Debug, Error, Serialize, Deserialize)]
 pub enum LiveViewMaudError {
     #[error("invalid csrf token")]
     InvalidCsrfToken,

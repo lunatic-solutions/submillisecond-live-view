@@ -6,13 +6,14 @@ use thiserror::Error;
 
 use crate::head::Head;
 use crate::rendered::Rendered;
-use crate::socket::{Event, Socket};
+use crate::socket::Event;
+use crate::Socket;
 
 /// A live view.
 pub trait LiveView: Sized {
     type Events: EventList<Self>;
 
-    fn mount(uri: Uri, socket: Option<&mut Socket>) -> Self;
+    fn mount(uri: Uri, socket: Option<Socket<Self>>) -> Self;
 
     fn render(&self) -> Rendered;
 
