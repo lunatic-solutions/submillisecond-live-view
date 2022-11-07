@@ -11,8 +11,6 @@ pub use ::maud::*;
 
 pub use crate::live_view::*;
 
-pub type Socket<T> = crate::socket::Socket<crate::maud::LiveViewMaud<T>, T>;
-
 pub mod prelude {
     pub use submillisecond::http::Uri;
 
@@ -20,6 +18,6 @@ pub mod prelude {
     pub use crate::head::*;
     pub use crate::manager::*;
     pub use crate::rendered::Rendered;
-    pub use crate::socket::{SocketError, SocketMessage};
+    pub use crate::socket::{Socket, SocketError, SocketMessage};
     pub use crate::*;
 }

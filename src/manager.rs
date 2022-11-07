@@ -1,6 +1,7 @@
 use std::fmt;
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use submillisecond::response::Response;
 use submillisecond::RequestContext;
 
@@ -14,7 +15,7 @@ where
     T: LiveView,
 {
     type State: Serialize + for<'de> Deserialize<'de>;
-    type Reply: Serialize;
+    // type Reply: Serialize;
     type Error: fmt::Display;
 
     /// Handle an initial stateless request.
@@ -23,9 +24,9 @@ where
     /// Handle a join event returning state and a reply.
     fn handle_join(
         &self,
-        socket: Socket<Self, T>,
+        socket: Socket,
         event: JoinEvent,
-    ) -> LiveViewManagerResult<Join<T, Self::State, Self::Reply>, Self::Error>;
+    ) -> LiveViewManagerResult<Join<T, Self::State, Value>, Self::Error>;
 
     /// Handle an event.
     fn handle_event(
@@ -33,7 +34,7 @@ where
         event: Event,
         state: &mut Self::State,
         live_view: &T,
-    ) -> LiveViewManagerResult<Option<Self::Reply>, Self::Error>;
+    ) -> LiveViewManagerResult<Option<Value>, Self::Error>;
 }
 
 /// Live view socket result for returning a response with a recoverable error,

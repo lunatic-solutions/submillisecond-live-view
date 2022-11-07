@@ -9,7 +9,7 @@ use lunatic_log::error;
 use rand::distributions::Alphanumeric;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::Value;
 use sha2::Sha256;
 use submillisecond::http::Uri;
 use submillisecond::response::Response;
@@ -58,7 +58,7 @@ where
     T: LiveView,
 {
     type State = Rendered;
-    type Reply = Value;
+    // type Reply = Value;
     type Error = LiveViewMaudError;
 
     fn handle_request(&self, req: RequestContext) -> Response {
@@ -124,9 +124,9 @@ where
 
     fn handle_join(
         &self,
-        socket: Socket<Self, T>,
+        socket: Socket,
         event: JoinEvent,
-    ) -> LiveViewManagerResult<Join<T, Self::State, Self::Reply>, Self::Error> {
+    ) -> LiveViewManagerResult<Join<T, Self::State, Value>, Self::Error> {
         let key: Hmac<Sha256> = Hmac::new_from_slice(&secret()).expect("unable to encode secret");
         let session: Result<Session, _> = event.session.verify_with_key(&key);
 
@@ -168,7 +168,7 @@ where
         _event: Event,
         state: &mut Self::State,
         live_view: &T,
-    ) -> LiveViewManagerResult<Option<Self::Reply>, Self::Error> {
+    ) -> LiveViewManagerResult<Option<Value>, Self::Error> {
         let rendered = live_view.render();
         let diff = state.clone().diff(rendered.clone()); // TODO: Remove these clones
         *state = rendered;

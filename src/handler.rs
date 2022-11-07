@@ -1,11 +1,11 @@
 use std::fmt;
 use std::marker::PhantomData;
 
-use lunatic::abstract_process;
-use lunatic::process::{ProcessRef, StartProcess};
+use lunatic::serializer::Json;
+use lunatic::{Mailbox, Process, Tag};
 use lunatic_log::{error, info, trace, warn};
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Map};
+use serde_json::{json, Value};
 use submillisecond::extract::FromOwnedRequest;
 use submillisecond::http::header;
 use submillisecond::response::{IntoResponse, Response};
@@ -52,7 +52,7 @@ impl<L, T> LiveViewHandler<L, T> {
 impl<L, T> Handler for LiveViewHandler<L, T>
 where
     L: Clone + LiveViewManager<T> + Serialize + for<'de> Deserialize<'de>,
-    L::Reply: Serialize + for<'de> Deserialize<'de>,
+    // L::Reply: Serialize + for<'de> Deserialize<'de>,
     L::Error: Serialize + for<'de> Deserialize<'de>,
     T: LiveView,
 {
@@ -75,19 +75,19 @@ where
 
             ws.on_upgrade(self.live_view.clone(), |conn, live_view| {
                 println!("Waiting for join");
-                let (mut socket, join_event) = match wait_for_join(conn) {
-                    Ok((socket, join_event)) => (socket, join_event),
+                let (mut socket, mut message) = match wait_for_join(conn) {
+                    Ok((socket, message)) => (socket, message),
                     Err(err) => {
                         error!("{err}");
                         return;
                     },
                 };
                 let mut conn = socket.conn.clone();
-                let event_handler = EventHandler::<L, T>::start_link((socket.clone(), live_view), None);
+                let event_handler = EventHandler { event_handler: Process::spawn_link((socket.clone(), live_view), event_handler) };
 
-                match event_handler.handle_join(join_event) {
+                match event_handler.handle_join(message.take_join_event().unwrap()) {
                     Ok(reply) => {
-                        socket.send_ok(&json!({ "rendered": reply })).unwrap();
+                        socket.send_reply(message.reply_ok(json!({ "rendered": reply }))).unwrap();
                     }
                     Err(err) => {
                         error!("{err}");
@@ -98,7 +98,7 @@ where
                 loop {
                     match RawSocket::receive_from_conn(&mut conn) {
                         Ok(SocketMessage::Event(message)) => {
-                            if !handle_message(&mut socket, message, &event_handler) {
+                            if !handle_message::<L, T>(&mut socket, message, &event_handler) {
                                 break;
                             }
                         }
@@ -136,26 +136,22 @@ where
     }
 }
 
-fn wait_for_join(mut conn: WebSocketConnection) -> Result<(RawSocket, JoinEvent), SocketError> {
+fn wait_for_join(mut conn: WebSocketConnection) -> Result<(RawSocket, Message), SocketError> {
     loop {
         match RawSocket::receive_from_conn(&mut conn) {
             Ok(SocketMessage::Event(
-                mut message @ Message {
+                message @ Message {
                     event: ProtocolEvent::Join,
                     ..
                 },
             )) => {
-                println!("Taking join event");
-                let join_event = message.take_join_event()?;
-                println!("Took");
                 return Ok((
                     RawSocket {
                         conn,
-                        ref1: message.ref1,
-                        ref2: message.ref2,
-                        topic: message.topic,
+                        ref1: message.ref1.clone(),
+                        topic: message.topic.clone(),
                     },
-                    join_event,
+                    message,
                 ));
             }
             Ok(SocketMessage::Event(Message {
@@ -184,102 +180,123 @@ fn wait_for_join(mut conn: WebSocketConnection) -> Result<(RawSocket, JoinEvent)
     }
 }
 
-#[derive(Serialize, Deserialize)]
-pub(crate) struct EventHandler<L, T>
-where
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+enum EventHandlerMessage {
+    HandleJoin(
+        Process<Result<Value, EventHandlerError>, Json>,
+        Tag,
+        JoinEvent,
+    ),
+    HandleEvent(
+        Process<Result<Option<Value>, EventHandlerError>, Json>,
+        Tag,
+        Event,
+    ),
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub(crate) struct EventHandler {
+    event_handler: Process<EventHandlerMessage, Json>,
+}
+
+impl EventHandler {
+    pub(crate) fn handle_join(&self, join_event: JoinEvent) -> Result<Value, EventHandlerError> {
+        let tag = Tag::new();
+        self.event_handler.send(EventHandlerMessage::HandleJoin(
+            Process::this(),
+            tag,
+            join_event,
+        ));
+        let mailbox: Mailbox<Result<Value, EventHandlerError>, Json> = unsafe { Mailbox::new() };
+        mailbox.tag_receive(&[tag])
+    }
+
+    pub(crate) fn handle_event(&self, event: Event) -> Result<Option<Value>, EventHandlerError> {
+        let tag = Tag::new();
+        self.event_handler.send(EventHandlerMessage::HandleEvent(
+            Process::this(),
+            tag,
+            event,
+        ));
+        let mailbox: Mailbox<Result<Option<Value>, EventHandlerError>, Json> =
+            unsafe { Mailbox::new() };
+        mailbox.tag_receive(&[tag])
+    }
+}
+
+fn event_handler<L, T>(
+    (socket, manager): (RawSocket, L),
+    mailbox: Mailbox<EventHandlerMessage, Json>,
+) where
     L: LiveViewManager<T>,
     T: LiveView,
 {
-    this: ProcessRef<Self>,
-    state: Option<(T, L::State)>,
-    socket: RawSocket,
-    manager: L,
-}
+    let this: Process<EventHandlerMessage, Json> = Process::this();
+    let mut state = None;
 
-#[abstract_process(visibility = pub(crate))]
-impl<L, T> EventHandler<L, T>
-where
-    L: LiveViewManager<T> + Serialize + for<'de> Deserialize<'de>,
-    L::Reply: Serialize + for<'de> Deserialize<'de>,
-    L::Error: Serialize + for<'de> Deserialize<'de>,
-    T: LiveView,
-{
-    #[init]
-    fn init(this: ProcessRef<Self>, (socket, manager): (RawSocket, L)) -> Self {
-        EventHandler {
-            this,
-            state: None,
-            socket,
-            manager,
-        }
-    }
-
-    #[handle_request]
-    fn handle_join(
-        &mut self,
-        join_event: JoinEvent,
-    ) -> Result<L::Reply, EventHandlerError<L::Error>> {
-        match self
-            .manager
-            .handle_join(
-                Socket {
-                    event_handler: self.this.clone(),
-                    socket: self.socket.clone(),
-                },
-                join_event,
-            )
-            .into_result()
-            .map_err(EventHandlerError::ManagerError)
-        {
-            Ok(Join {
-                live_view,
-                state,
-                reply,
-            }) => {
-                self.state = Some((live_view, state));
-                Ok(reply)
+    loop {
+        let message = mailbox.receive();
+        match message {
+            EventHandlerMessage::HandleJoin(parent, tag, join_event) => {
+                let reply = match manager
+                    .handle_join(
+                        Socket {
+                            event_handler: EventHandler {
+                                event_handler: this.clone(),
+                            },
+                            socket: socket.clone(),
+                        },
+                        join_event,
+                    )
+                    .into_result()
+                {
+                    Ok(Join {
+                        live_view,
+                        state: new_state,
+                        reply,
+                    }) => {
+                        state = Some((live_view, new_state));
+                        Ok(reply)
+                    }
+                    Err(err) => Err(EventHandlerError::ManagerError(err.to_string())),
+                };
+                parent.tag_send(tag, reply);
             }
-            Err(err) => Err(err),
-        }
-    }
-
-    #[handle_request]
-    fn handle_event(
-        &mut self,
-        event: Event,
-    ) -> Result<Option<L::Reply>, EventHandlerError<L::Error>> {
-        match &mut self.state {
-            Some((live_view, state)) => {
-                match <T::Events as EventList<T>>::handle_event(live_view, event.clone()) {
-                    Ok(handled) => {
-                        if !handled {
-                            Err(EventHandlerError::UnknownEvent)
-                        } else {
-                            let reply = self
-                                .manager
-                                .handle_event(event, state, live_view)
-                                .into_result()
-                                .map_err(EventHandlerError::ManagerError)?;
-
-                            Ok(reply)
+            EventHandlerMessage::HandleEvent(parent, tag, event) => {
+                let reply = match &mut state {
+                    Some((live_view, state)) => {
+                        match <T::Events as EventList<T>>::handle_event(live_view, event.clone()) {
+                            Ok(handled) => {
+                                if !handled {
+                                    Err(EventHandlerError::UnknownEvent)
+                                } else {
+                                    manager
+                                        .handle_event(event, state, live_view)
+                                        .into_result()
+                                        .map_err(|err| {
+                                            EventHandlerError::ManagerError(err.to_string())
+                                        })
+                                }
+                            }
+                            Err(_) => Err(EventHandlerError::DeserializeEvent),
                         }
                     }
-                    Err(_) => Err(EventHandlerError::DeserializeEvent),
-                }
+                    None => Err(EventHandlerError::NotMounted),
+                };
+                parent.tag_send(tag, reply);
             }
-            None => Err(EventHandlerError::NotMounted),
-        }
+        };
     }
 }
 
 #[derive(Clone, Debug, Error, Serialize, Deserialize)]
-pub enum EventHandlerError<M> {
+pub enum EventHandlerError {
     #[error("deserialize event failed")]
     DeserializeEvent,
     #[error("serialize event failed")]
     SerializeEvent,
-    #[error(transparent)]
-    ManagerError(M),
+    #[error("manager error: {0}")]
+    ManagerError(String),
     #[error("not mounted")]
     NotMounted,
     #[error("socket error: {0}")]
@@ -291,11 +308,11 @@ pub enum EventHandlerError<M> {
 fn handle_message<L, T>(
     socket: &mut RawSocket,
     mut message: Message,
-    event_handler: &ProcessRef<EventHandler<L, T>>,
+    event_handler: &EventHandler,
 ) -> bool
 where
     L: LiveViewManager<T> + Serialize + for<'de> Deserialize<'de>,
-    L::Reply: Serialize + for<'de> Deserialize<'de>,
+    // L::Reply: Serialize + for<'de> Deserialize<'de>,
     L::Error: Serialize + for<'de> Deserialize<'de>,
     T: LiveView,
 {
@@ -312,10 +329,12 @@ where
                 info!("Received event {}", event.name);
                 match event_handler.handle_event(event) {
                     Ok(Some(reply)) => {
-                        socket.send_ok(&json!({ "diff": reply })).log_warn();
+                        socket
+                            .send_reply(message.reply_ok(json!({ "diff": reply })))
+                            .log_warn();
                     }
                     Ok(None) => {
-                        socket.send_ok(&json!({})).log_warn();
+                        socket.send_reply(message.reply_ok(json!({}))).log_warn();
                     }
                     Err(err) => {
                         error!("{err}");
@@ -329,7 +348,7 @@ where
             }
         },
         ProtocolEvent::Heartbeat => {
-            socket.send_ok(&Map::default()).log_error();
+            socket.send_reply(message.reply_ok(json!({}))).log_error();
             true
         }
         ProtocolEvent::Join => false,

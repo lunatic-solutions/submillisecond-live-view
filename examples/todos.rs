@@ -28,7 +28,7 @@ impl LiveView for Todos {
         SetFilter,
     );
 
-    fn mount(_uri: Uri, _socket: Option<Socket<Self>>) -> Self {
+    fn mount(_uri: Uri, _socket: Option<Socket>) -> Self {
         Todos {
             filter: Filter::All,
             todos: vec![Todo::new("Hello".to_string())],

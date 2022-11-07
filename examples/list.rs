@@ -18,7 +18,7 @@ struct List {
 impl LiveView for List {
     type Events = (Add, Remove, IncrementLast);
 
-    fn mount(_uri: Uri, _socket: Option<Socket<Self>>) -> Self {
+    fn mount(_uri: Uri, _socket: Option<Socket>) -> Self {
         List {
             numbers: Vec::new(),
         }

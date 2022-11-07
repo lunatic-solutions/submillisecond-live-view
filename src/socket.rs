@@ -1,40 +1,23 @@
 use std::convert::{TryFrom, TryInto};
 use std::mem;
 
-use lunatic::process::ProcessRef;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use submillisecond::websocket::WebSocketConnection;
 use thiserror::Error;
 
-use crate::handler::{EventHandler, EventHandlerError, EventHandlerHandler};
-use crate::manager::LiveViewManager;
-use crate::LiveView;
+use crate::handler::{EventHandler, EventHandlerError};
 
 /// Wrapper around a websocket connection to handle phoenix channels.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(bound = "")]
-pub struct Socket<L, T>
-where
-    L: LiveViewManager<T>,
-    T: LiveView,
-{
-    pub(crate) event_handler: ProcessRef<EventHandler<L, T>>,
+pub struct Socket {
+    pub(crate) event_handler: EventHandler,
     pub(crate) socket: RawSocket,
 }
 
-impl<L, T> Socket<L, T>
-where
-    L: LiveViewManager<T> + Serialize + for<'d> Deserialize<'d>,
-    L::State: Clone + Serialize + for<'de> Deserialize<'de>,
-    L::Reply: Serialize + for<'de> Deserialize<'de>,
-    L::Error: Serialize + for<'de> Deserialize<'de>,
-    T: LiveView,
-{
-    pub fn send_event<E>(
-        &mut self,
-        event: E,
-    ) -> Result<(), EventHandlerError<<L as LiveViewManager<T>>::Error>>
+impl Socket {
+    pub fn send_event<E>(&mut self, event: E) -> Result<(), EventHandlerError>
     where
         E: Serialize,
     {
@@ -54,15 +37,14 @@ where
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct RawSocket {
     pub(crate) conn: WebSocketConnection,
-    pub(crate) ref1: Option<String>,
-    pub(crate) ref2: Option<String>,
+    pub(crate) ref1: String,
     pub(crate) topic: String,
 }
 
 impl RawSocket {
-    pub fn receive(&mut self) -> Result<SocketMessage, SocketError> {
-        Self::receive_from_conn(&mut self.conn)
-    }
+    // pub fn receive(&mut self) -> Result<SocketMessage, SocketError> {
+    //     Self::receive_from_conn(&mut self.conn)
+    // }
 
     pub fn receive_from_conn(conn: &mut WebSocketConnection) -> Result<SocketMessage, SocketError> {
         let message = conn.read_message()?;
@@ -76,7 +58,7 @@ impl RawSocket {
         let protocol_event = serde_json::to_value(event)?;
         let text = serde_json::to_string(&json!([
             &self.ref1,
-            &self.ref2,
+            &None::<()>,
             &self.topic,
             &protocol_event,
             value,
@@ -85,30 +67,9 @@ impl RawSocket {
         Ok(self.conn.write_message(tungstenite::Message::Text(text))?)
     }
 
-    pub fn send_ok<T>(&mut self, value: &T) -> Result<(), SocketError>
-    where
-        T: Serialize,
-    {
-        self.send(
-            ProtocolEvent::Reply,
-            &Response {
-                status: Status::Ok,
-                response: value,
-            },
-        )
-    }
-
-    pub fn send_err<T>(&mut self, value: &T) -> Result<(), SocketError>
-    where
-        T: Serialize,
-    {
-        self.send(
-            ProtocolEvent::Error,
-            &Response {
-                status: Status::Error,
-                response: value,
-            },
-        )
+    pub fn send_reply(&mut self, message: &Message) -> Result<(), SocketError> {
+        let text = serde_json::to_string(&message.to_tuple())?;
+        Ok(self.conn.write_message(tungstenite::Message::Text(text))?)
     }
 }
 
@@ -143,7 +104,7 @@ pub enum ProtocolEvent {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Message {
-    pub ref1: Option<String>,
+    pub ref1: String,
     pub ref2: Option<String>,
     pub topic: String,
     pub event: ProtocolEvent,
@@ -151,6 +112,32 @@ pub struct Message {
 }
 
 impl Message {
+    pub fn reply_ok<T>(&mut self, response: T) -> &mut Self
+    where
+        T: Serialize,
+    {
+        self.event = ProtocolEvent::Reply;
+        self.payload = serde_json::to_value(Response {
+            status: Status::Ok,
+            response,
+        })
+        .unwrap();
+        self
+    }
+
+    pub fn reply_err<T>(&mut self, response: T) -> &mut Self
+    where
+        T: Serialize,
+    {
+        self.event = ProtocolEvent::Reply;
+        self.payload = serde_json::to_value(Response {
+            status: Status::Error,
+            response,
+        })
+        .unwrap();
+        self
+    }
+
     pub fn take_event(&mut self) -> Result<Event, serde_json::Error> {
         serde_json::from_value(mem::take(&mut self.payload))
     }
@@ -159,15 +146,7 @@ impl Message {
         serde_json::from_value(mem::take(&mut self.payload))
     }
 
-    fn to_tuple(
-        &self,
-    ) -> (
-        &Option<String>,
-        &Option<String>,
-        &String,
-        &ProtocolEvent,
-        &Value,
-    ) {
+    fn to_tuple(&self) -> (&String, &Option<String>, &String, &ProtocolEvent, &Value) {
         (
             &self.ref1,
             &self.ref2,
@@ -178,13 +157,7 @@ impl Message {
     }
 
     fn from_tuple(
-        (ref1, ref2, topic, event, payload): (
-            Option<String>,
-            Option<String>,
-            String,
-            ProtocolEvent,
-            Value,
-        ),
+        (ref1, ref2, topic, event, payload): (String, Option<String>, String, ProtocolEvent, Value),
     ) -> Self {
         Message {
             ref1,

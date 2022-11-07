@@ -1,5 +1,5 @@
 use enumflags2::{bitflags, BitFlags};
-use serde_json::{Map, Value};
+use serde_json::Value;
 
 /// Specifies the type of strip operation to perform using Bitwise OR eg.
 /// Strip::Nulls | Strip::Empties
