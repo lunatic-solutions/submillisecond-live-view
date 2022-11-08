@@ -1,10 +1,19 @@
 # Submillisecond LiveView
 
-A live-view implementation for the [submillisecond] web framework built with [lunatic].
+A LiveView implementation for the [submillisecond] web framework built with [lunatic].
 
 # Features
 
 - todo!()
+
+# What is LiveView?
+
+LiveView allows you to write zero-javascript\*, server-rendered real-time web apps.
+It uses events to re-render the html on the server, and send back only what has been changed.
+
+It was made popular by the [Phoenix] webframework for Elixir.
+
+[phoenix]: https://hexdocs.pm/phoenix_live_view/Phoenix.LiveView.html
 
 # Code example
 
