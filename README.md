@@ -84,19 +84,10 @@ Initialize submodules
 git submodule init
 ```
 
-Build JS
+Run an example
 
 ```bash
-cd web
-npm i
-npm run build
-cd ..
-```
-
-Finally, run an example
-
-```bash
-cargo run --example counter
+cargo run --example clock
 ```
 
 # License

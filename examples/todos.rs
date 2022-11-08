@@ -47,8 +47,6 @@ impl LiveView for Todos {
             }
         };
 
-        dbg!(&rendered);
-
         rendered
     }
 
