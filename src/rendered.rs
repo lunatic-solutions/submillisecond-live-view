@@ -33,6 +33,18 @@ pub struct RenderedListItem {
     pub dynamics: Vec<Dynamic<Self>>,
 }
 
+pub trait IntoJson: Sized {
+    fn into_json(self) -> Value {
+        let mut map = Map::new();
+        self.write_json(&mut map);
+        map.into()
+    }
+
+    fn write_json(self, _map: &mut Map<String, Value>) {
+        todo!()
+    }
+}
+
 impl Rendered {
     pub fn builder() -> builder::RenderedBuilder {
         builder::RenderedBuilder::new()
@@ -107,18 +119,6 @@ fn fmt_dynamic_list_item(
         }
     }
     Ok(())
-}
-
-pub trait IntoJson: Sized {
-    fn into_json(self) -> Value {
-        let mut map = Map::new();
-        self.write_json(&mut map);
-        map.into()
-    }
-
-    fn write_json(self, _map: &mut Map<String, Value>) {
-        todo!()
-    }
 }
 
 impl IntoJson for Rendered {

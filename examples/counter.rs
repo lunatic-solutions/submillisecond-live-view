@@ -18,7 +18,7 @@ struct Counter {
 impl LiveView for Counter {
     type Events = (Increment, Decrement);
 
-    fn mount(_uri: Uri, _socket: Option<&mut Socket>) -> Self {
+    fn mount(_uri: Uri, _socket: Option<Socket>) -> Self {
         Counter { count: 0 }
     }
 
@@ -40,7 +40,7 @@ impl LiveView for Counter {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 struct Increment {}
 
 impl LiveViewEvent<Increment> for Counter {
@@ -49,7 +49,7 @@ impl LiveViewEvent<Increment> for Counter {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 struct Decrement {}
 
 impl LiveViewEvent<Decrement> for Counter {
