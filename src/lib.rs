@@ -1,4 +1,5 @@
 pub mod csrf;
+mod event_handler;
 pub mod handler;
 pub mod head;
 mod live_view;

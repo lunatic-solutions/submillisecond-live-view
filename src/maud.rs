@@ -9,7 +9,7 @@ use lunatic_log::error;
 use rand::distributions::Alphanumeric;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::Value;
 use sha2::Sha256;
 use submillisecond::http::Uri;
 use submillisecond::response::Response;
@@ -35,6 +35,21 @@ pub struct LiveViewMaud<T> {
     phantom: PhantomData<T>,
 }
 
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+struct Session {
+    csrf_token: String,
+}
+
+#[derive(Clone, Copy, Debug, Error, Serialize, Deserialize)]
+pub enum LiveViewMaudError {
+    #[error("invalid csrf token")]
+    InvalidCsrfToken,
+    #[error("invalid url")]
+    InvalidUrl,
+    #[error("missing url")]
+    MissingUrl,
+}
+
 impl<T> Clone for LiveViewMaud<T> {
     fn clone(&self) -> Self {
         Self {
@@ -58,7 +73,7 @@ where
     T: LiveView,
 {
     type State = Rendered;
-    type Reply = Value;
+    // type Reply = Value;
     type Error = LiveViewMaudError;
 
     fn handle_request(&self, req: RequestContext) -> Response {
@@ -124,9 +139,9 @@ where
 
     fn handle_join(
         &self,
-        socket: &mut Socket,
+        socket: Socket,
         event: JoinEvent,
-    ) -> LiveViewManagerResult<Join<T, Self::State, Self::Reply>, Self::Error> {
+    ) -> LiveViewManagerResult<Join<T, Self::State, Value>, Self::Error> {
         let key: Hmac<Sha256> = Hmac::new_from_slice(&secret()).expect("unable to encode secret");
         let session: Result<Session, _> = event.session.verify_with_key(&key);
 
@@ -155,7 +170,7 @@ where
 
         let live_view = T::mount(uri, Some(socket));
         let state = live_view.render();
-        let reply = json!({ "rendered": state.clone().into_json() });
+        let reply = state.clone().into_json();
         LiveViewManagerResult::Ok(Join {
             live_view,
             state,
@@ -168,31 +183,13 @@ where
         _event: Event,
         state: &mut Self::State,
         live_view: &T,
-    ) -> LiveViewManagerResult<Self::Reply, Self::Error> {
+    ) -> LiveViewManagerResult<Option<Value>, Self::Error> {
         let rendered = live_view.render();
         let diff = state.clone().diff(rendered.clone()); // TODO: Remove these clones
         *state = rendered;
 
-        match diff {
-            Some(diff) => LiveViewManagerResult::Ok(json!({ "diff": diff })),
-            None => LiveViewManagerResult::Ok(json!({})),
-        }
+        LiveViewManagerResult::Ok(diff)
     }
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-struct Session {
-    csrf_token: String,
-}
-
-#[derive(Debug, Error)]
-pub enum LiveViewMaudError {
-    #[error("invalid csrf token")]
-    InvalidCsrfToken,
-    #[error("invalid url")]
-    InvalidUrl,
-    #[error("missing url")]
-    MissingUrl,
 }
 
 const SECRET_DEFAULT: [u8; 32] = const_random!([u8; 32]);
