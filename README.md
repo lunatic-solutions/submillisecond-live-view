@@ -1,4 +1,4 @@
-# submillisecond-live-view
+# Submillisecond LiveView
 
 A live-view implementation for the [submillisecond] web framework built with [lunatic].
 
