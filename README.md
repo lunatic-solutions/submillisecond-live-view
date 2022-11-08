@@ -8,8 +8,14 @@ A LiveView implementation for the [submillisecond] web framework built with [lun
 
 # What is LiveView?
 
-LiveView allows you to write zero-javascript\*, server-rendered real-time web apps.
-It uses events to re-render the html on the server, and send back only what has been changed.
+LiveView provides rich, real-time user experiences with server-rendered HTML.
+
+The LiveView programming model is declarative: instead of saying "once event X happens, change Y on the page",
+events in LiveView are regular messages which may cause changes to its state. Once the state changes,
+LiveView will re-render the relevant parts of its HTML template and push it to the browser,
+which updates itself in the most efficient manner.
+This means developers write LiveView templates as any other server-rendered HTML and LiveView does the hard work
+of tracking changes and sending the relevant diffs to the browser.
 
 It was made popular by the [Phoenix] webframework for Elixir.
 
