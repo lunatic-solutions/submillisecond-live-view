@@ -1,9 +1,12 @@
+//! Builder to build [`Rendered`], used by the `html!` macro.
+
 use slotmap::{new_key_type, SlotMap};
 
-use super::{Dynamic, DynamicItems, DynamicList, Dynamics, Rendered, RenderedListItem};
+use super::{dynamic::DynamicList, Dynamic, DynamicItems, Dynamics, Rendered, RenderedListItem};
 
-new_key_type! { pub struct NodeId; }
+new_key_type! { struct NodeId; }
 
+/// Rendered builder, used by the `html!` macro.
 #[derive(Debug)]
 pub struct RenderedBuilder {
     nodes: SlotMap<NodeId, Node>,
@@ -44,6 +47,7 @@ enum DynamicNode {
 }
 
 impl RenderedBuilder {
+    /// Creates a new [`RenderedBuilder`].
     pub fn new() -> Self {
         let mut nodes = SlotMap::with_key();
         let last_node = nodes.insert(Node::new(
@@ -53,11 +57,13 @@ impl RenderedBuilder {
         RenderedBuilder { nodes, last_node }
     }
 
+    /// Builds into a [`Rendered`].
     pub fn build(mut self) -> Rendered {
         let root = self.nodes.remove(self.last_node).unwrap();
         root.build(&mut self)
     }
 
+    /// Pushes a [`Rendered`] to be nested.
     pub fn push_nested(&mut self, other: Rendered) {
         let parent = self.parent_of(self.last_node).unwrap();
         let id = self
@@ -80,22 +86,27 @@ impl RenderedBuilder {
         }
     }
 
+    /// Pushes a static string.
     pub fn push_static(&mut self, s: &str) {
         self.last_node_mut().push_static(s)
     }
 
+    /// Pushes a dynamic string.
     pub fn push_dynamic(&mut self, s: String) {
         self.last_node_mut().push_dynamic(s)
     }
 
+    /// Pushes an if frame.
     pub fn push_if_frame(&mut self) {
         self.push_dynamic_node(NodeValue::Items(ItemsNode::default()));
     }
 
+    /// Pushes a for loop frame.
     pub fn push_for_frame(&mut self) {
         self.push_dynamic_node(NodeValue::List(ListNode::default()));
     }
 
+    /// Pushes an item frame in a for loop.
     pub fn push_for_item(&mut self) {
         let last_node = self.last_node_mut();
         match &mut last_node.value {
@@ -110,8 +121,10 @@ impl RenderedBuilder {
         }
     }
 
+    /// Pops an item from the for loop.
     pub fn pop_for_item(&mut self) {}
 
+    /// Pops a frame.
     pub fn pop_frame(&mut self) {
         if let Some(parent_id) = self.parent_of(self.last_node) {
             self.last_node = parent_id;

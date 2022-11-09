@@ -1,19 +1,28 @@
+//! Html head types, including page title, meta tags, styles, and scripts.
+
 /// Html head containing title, meta, styles, and scripts.
 pub struct Head {
+    /// Page title.
     pub title: &'static str,
+    /// Html meta tags.
     pub meta: Vec<Meta>,
+    /// CSS styles.
     pub styles: Vec<Style>,
+    /// JS scripts.
     pub scripts: Vec<Script>,
 }
 
 /// Html meta tag.
 pub struct Meta {
+    /// Meta tag attributes.
     pub attrs: Vec<MetaAttr>,
 }
 
 /// Html meta attribute.
 pub struct MetaAttr {
+    /// Attribute name.
     pub name: &'static str,
+    /// Attribute value.
     pub value: &'static str,
 }
 
@@ -28,7 +37,12 @@ pub enum Style {
 /// Script element.
 pub enum Script {
     /// Link to an external script.
-    Link { href: &'static str, defer: bool },
+    Link {
+        /// Link's href.
+        href: &'static str,
+        /// defer attrbute.
+        defer: bool,
+    },
     /// Embedded JavaScript placed in a script tag.
     Js(&'static str),
     #[cfg(feature = "liveview_js")]

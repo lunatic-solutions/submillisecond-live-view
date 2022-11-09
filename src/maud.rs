@@ -2,6 +2,7 @@ use std::borrow::Cow;
 use std::env;
 use std::marker::PhantomData;
 
+pub use ::maud::*;
 use const_random::const_random;
 use hmac::{Hmac, Mac};
 use jwt::{SignWithKey, VerifyWithKey};
@@ -21,7 +22,7 @@ use crate::head::{Script, Style};
 use crate::manager::{Join, LiveViewManager, LiveViewManagerResult};
 use crate::rendered::{IntoJson, Rendered};
 use crate::socket::{Event, JoinEvent, Socket};
-use crate::{self as submillisecond_live_view, html, LiveView, PreEscaped, DOCTYPE};
+use crate::{self as submillisecond_live_view, html, LiveView};
 
 #[cfg(all(debug_assertions, feature = "liveview_js"))]
 const LIVEVIEW_JS: &str = include_str!("../liveview-debug.js");
@@ -41,7 +42,7 @@ struct Session {
 }
 
 #[derive(Clone, Copy, Debug, Error, Serialize, Deserialize)]
-pub enum LiveViewMaudError {
+pub(crate) enum LiveViewMaudError {
     #[error("invalid csrf token")]
     InvalidCsrfToken,
     #[error("invalid url")]

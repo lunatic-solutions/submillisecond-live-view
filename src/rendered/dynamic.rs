@@ -3,19 +3,19 @@ use std::{fmt, ops};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Dynamics<N, L> {
+pub(crate) enum Dynamics<N, L> {
     Items(DynamicItems<N>),
     List(DynamicList<L>),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct DynamicItems<N>(pub Vec<Dynamic<N>>);
+pub(crate) struct DynamicItems<N>(pub Vec<Dynamic<N>>);
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct DynamicList<L>(pub Vec<Vec<Dynamic<L>>>);
+pub(crate) struct DynamicList<L>(pub Vec<Vec<Dynamic<L>>>);
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Dynamic<N> {
+pub(crate) enum Dynamic<N> {
     String(String),
     Nested(N),
 }

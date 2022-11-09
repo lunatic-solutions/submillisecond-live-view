@@ -9,7 +9,7 @@ use crate::socket::{Event, JoinEvent, Socket};
 use crate::LiveView;
 
 /// Handles requests and events.
-pub trait LiveViewManager<T>
+pub(crate) trait LiveViewManager<T>
 where
     Self: Sized,
     T: LiveView,
@@ -42,20 +42,20 @@ where
 ///
 /// If fatal error is returned, the websocket connection is closed.
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
-pub enum LiveViewManagerResult<T, E> {
+pub(crate) enum LiveViewManagerResult<T, E> {
     Ok(T),
     Error(E),
     FatalError(E),
 }
 
-pub struct Join<L, S, R> {
-    pub live_view: L,
-    pub state: S,
-    pub reply: R,
+pub(crate) struct Join<L, S, R> {
+    pub(crate) live_view: L,
+    pub(crate) state: S,
+    pub(crate) reply: R,
 }
 
 impl<T, E> LiveViewManagerResult<T, E> {
-    pub fn into_result(self) -> Result<T, E> {
+    pub(crate) fn into_result(self) -> Result<T, E> {
         match self {
             LiveViewManagerResult::Ok(value) => Ok(value),
             LiveViewManagerResult::Error(err) | LiveViewManagerResult::FatalError(err) => Err(err),

@@ -1,3 +1,5 @@
+//! WebSocket functionality.
+
 use std::convert::{TryFrom, TryInto};
 use std::mem;
 
@@ -17,6 +19,19 @@ pub struct Socket {
     pub(crate) socket: RawSocket,
 }
 
+/// A raw event from the socket.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Event {
+    /// Event name.
+    #[serde(rename = "event")]
+    pub name: String,
+    /// Event type.
+    #[serde(rename = "type")]
+    pub ty: String,
+    /// Event value.
+    pub value: Value,
+}
+
 /// Wrapper around a websocket connection to handle phoenix channels.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct RawSocket {
@@ -27,7 +42,7 @@ pub(crate) struct RawSocket {
 
 /// Protocol-reserved events.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum ProtocolEvent {
+pub(crate) enum ProtocolEvent {
     /// The connection will be closed.
     #[serde(rename = "phx_close")]
     Close,
@@ -55,7 +70,7 @@ pub enum ProtocolEvent {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Message {
+pub(crate) struct Message {
     pub ref1: Option<String>,
     pub ref2: Option<String>,
     pub topic: String,
@@ -64,16 +79,7 @@ pub struct Message {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Event {
-    #[serde(rename = "event")]
-    pub name: String,
-    #[serde(rename = "type")]
-    pub ty: String,
-    pub value: Value,
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct JoinEvent {
+pub(crate) struct JoinEvent {
     pub url: Option<String>,
     pub redirect: Option<String>,
     pub params: JoinEventParams,
@@ -83,7 +89,7 @@ pub struct JoinEvent {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct JoinEventParams {
+pub(crate) struct JoinEventParams {
     #[serde(rename = "_csrf_token")]
     pub csrf_token: String,
     #[serde(rename = "_mounts")]
@@ -94,12 +100,12 @@ pub struct JoinEventParams {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum Status {
+pub(crate) enum Status {
     Ok,
     Error,
 }
 
-pub enum SocketMessage {
+pub(crate) enum SocketMessage {
     Event(Message),
     Close,
     Ping(Vec<u8>),
@@ -107,7 +113,7 @@ pub enum SocketMessage {
 }
 
 #[derive(Debug, Error)]
-pub enum SocketError {
+pub(crate) enum SocketError {
     #[error(transparent)]
     WebsocketError(#[from] tungstenite::Error),
     #[error(transparent)]
@@ -222,18 +228,18 @@ impl Message {
         self
     }
 
-    pub fn reply_err<T>(&mut self, response: T) -> &mut Self
-    where
-        T: Serialize,
-    {
-        self.event = ProtocolEvent::Reply;
-        self.payload = serde_json::to_value(Response {
-            status: Status::Error,
-            response,
-        })
-        .unwrap();
-        self
-    }
+    // pub fn reply_err<T>(&mut self, response: T) -> &mut Self
+    // where
+    //     T: Serialize,
+    // {
+    //     self.event = ProtocolEvent::Reply;
+    //     self.payload = serde_json::to_value(Response {
+    //         status: Status::Error,
+    //         response,
+    //     })
+    //     .unwrap();
+    //     self
+    // }
 
     pub fn take_event(&mut self) -> Result<Event, serde_json::Error> {
         serde_json::from_value(mem::take(&mut self.payload))

@@ -1,3 +1,5 @@
+//! Handler functionality for handling LiveViews.
+
 use std::fmt;
 use std::marker::PhantomData;
 
@@ -18,12 +20,15 @@ use crate::LiveView;
 
 type Manager<T> = LiveViewMaud<T>;
 
+/// A LiveView handler created with `LiveViewRouter::handler`.
 pub struct LiveViewHandler<L, T> {
     live_view: L,
     phantom: PhantomData<T>,
 }
 
+/// Trait used to create a handler from a LiveView.
 pub trait LiveViewRouter: Sized {
+    /// Create handler for LiveView.
     fn handler() -> LiveViewHandler<Manager<Self>, Self>;
 }
 
@@ -58,10 +63,6 @@ where
     T: LiveView,
 {
     fn handle(&self, req: RequestContext) -> Response {
-        if *req.method() != ::submillisecond::http::Method::GET {
-            return T::not_found(req);
-        }
-
         let is_websocket = req
             .headers()
             .get(header::UPGRADE)
@@ -128,10 +129,6 @@ where
             })
             .into_response()
         } else {
-            if !req.reader.is_dangling_slash() {
-                return T::not_found(req);
-            }
-
             self.live_view.handle_request(req)
         }
     }
