@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use std::env;
 use std::marker::PhantomData;
 
-pub use ::maud::*;
+pub use ::maud_live_view::*;
 use const_random::const_random;
 use hmac::{Hmac, Mac};
 use jwt::{SignWithKey, VerifyWithKey};

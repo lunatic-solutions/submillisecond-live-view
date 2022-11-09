@@ -2,7 +2,8 @@
 
 use slotmap::{new_key_type, SlotMap};
 
-use super::{dynamic::DynamicList, Dynamic, DynamicItems, Dynamics, Rendered, RenderedListItem};
+use super::dynamic::DynamicList;
+use super::{Dynamic, DynamicItems, Dynamics, Rendered, RenderedListItem};
 
 new_key_type! { struct NodeId; }
 

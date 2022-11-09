@@ -156,7 +156,7 @@ mod manager;
 mod maud;
 
 pub use crate::live_view::*;
-pub use ::maud::html;
+pub use ::maud_live_view::html;
 
 /// Prelude
 pub mod prelude {
