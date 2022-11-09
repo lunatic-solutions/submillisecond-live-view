@@ -95,14 +95,6 @@ impl LiveViewEvent<Decrement> for Counter {
 }
 ```
 
-## Getting started with submillisecond-live-view
-
-Add it as a dependency
-
-```toml
-submillisecond-live-view = "*"
-```
-
 ## Running examples
 
 Clone the repository
