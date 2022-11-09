@@ -1,5 +1,14 @@
 //! Submillisecond LiveView provides rich, real-time user experiences with server-rendered HTML.
 //!
+//! ### Prerequisites
+//!
+//! [Lunatic runtime] is required, along with the wasm32-wasi target.
+//!
+//! See [README.md#prerequisites] on how to install Lunatic.
+//!
+//! [Lunatic runtime]: https://github.com/lunatic-solutions/submillisecond-live-view/edit/main/README.md#prerequisites
+//! [README.md#prerequisites]: https://github.com/lunatic-solutions/submillisecond-live-view/edit/main/README.md#prerequisites
+//!
 //! ### Quick Start
 //!
 //! To get started, add `submillisecond`, `submillisecond-live-view`, and `serde` to your Cargo.toml.
@@ -62,7 +71,7 @@
 //! }
 //! ```
 //!
-//! ### Html macro
+//! ### Html Macro
 //!
 //! The `html!` macro is an extended version of the [maud] macro,
 //! which is available under [`submillisecond_live_view::html!`](html!).

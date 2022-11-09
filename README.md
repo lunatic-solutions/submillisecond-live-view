@@ -17,6 +17,29 @@ It was made popular by the [Phoenix] webframework for Elixir.
 
 [phoenix]: https://hexdocs.pm/phoenix_live_view/Phoenix.LiveView.html
 
+# Prerequisites
+
+[Lunatic runtime] is required, along with the wasm32-wasi target.
+
+```bash
+cargo install lunatic-runtime
+rustup target add wasm32-wasi
+```
+
+It is also recommended to add a `.cargo/config.toml` file with the build target and runner configured.
+
+```toml
+# .cargo/config.toml
+
+[build]
+target = "wasm32-wasi"
+
+[target.wasm32-wasi]
+runner = "lunatic"
+```
+
+[lunatic runtime]: https://github.com/lunatic-solutions/lunatic-rs#setup
+
 # Code example
 
 ```rust
