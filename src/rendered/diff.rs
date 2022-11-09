@@ -36,8 +36,10 @@ pub fn diff(old: &Value, new: &Value) -> Option<Value> {
         _ => {
             if old != new {
                 if let Value::String(s) = new {
-                    if s.is_empty() {
-                        return Some(json!({ "d": [] }));
+                    if let Value::Object(o) = old {
+                        if o.contains_key("d") && s.is_empty() {
+                            return Some(json!({ "d": [] }));
+                        }
                     }
                 }
                 Some(new.clone())
