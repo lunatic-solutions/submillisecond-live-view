@@ -2,10 +2,6 @@
 
 A LiveView implementation for the [submillisecond] web framework built with [lunatic].
 
-# Features
-
-- todo!()
-
 # What is LiveView?
 
 LiveView provides rich, real-time user experiences with server-rendered HTML.

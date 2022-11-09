@@ -35,3 +35,7 @@ uuid = { version = "1.2", features = ["serde", "v4"] }
 [features]
 default = ["liveview_js"]
 liveview_js = []
+
+[package.metadata.docs.rs]
+targets = ["wasm32-wasi"]
+
