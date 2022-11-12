@@ -1,3 +1,0 @@
-[submodule "./crates/maud_live_view"]
-	url = git@github.com:lunatic-solutions/maud_live_view.git
-	branch = liveview
