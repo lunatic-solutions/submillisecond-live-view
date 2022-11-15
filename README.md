@@ -104,12 +104,6 @@ git clone git@github.com:lunatic-solutions/submillisecond-live-view.git
 cd submillisecond-live-view
 ```
 
-Initialize submodules
-
-```bash
-git submodule init
-```
-
 Run an example
 
 ```bash
