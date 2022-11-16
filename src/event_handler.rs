@@ -97,7 +97,7 @@ fn event_handler<L, T>(
                     .handle_join(
                         Socket {
                             event_handler: EventHandler {
-                                event_handler: this.clone(),
+                                event_handler: this,
                             },
                             socket: socket.clone(),
                         },

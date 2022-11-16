@@ -1,4 +1,5 @@
-//! Submillisecond LiveView provides rich, real-time user experiences with server-rendered HTML.
+//! Submillisecond LiveView provides rich, real-time user experiences with
+//! server-rendered HTML.
 //!
 //! ### Prerequisites
 //!
@@ -6,12 +7,13 @@
 //!
 //! See [README.md#prerequisites] on how to install Lunatic.
 //!
-//! [Lunatic runtime]: https://github.com/lunatic-solutions/submillisecond-live-view/edit/main/README.md#prerequisites
-//! [README.md#prerequisites]: https://github.com/lunatic-solutions/submillisecond-live-view/edit/main/README.md#prerequisites
+//! [Lunatic runtime]: https://github.com/lunatic-solutions/lunatic-rs#setup
+//! [README.md#prerequisites]: https://github.com/lunatic-solutions/submillisecond-live-view#prerequisites
 //!
 //! ### Quick Start
 //!
-//! To get started, add `submillisecond`, `submillisecond-live-view`, and `serde` to your Cargo.toml.
+//! To get started, add `submillisecond`, `submillisecond-live-view`, and
+//! `serde` to your Cargo.toml.
 //!
 //! ```text
 //! [dependencies]
@@ -20,8 +22,9 @@
 //! serde = { version = "*", features = ["derive"] }
 //! ```
 //!
-//! Next, implement [`LiveView`] on a new type, and define the [`LiveView::Events`] tuple, [`LiveView::mount`] and
-//! [`LiveView::render`] methods.
+//! Next, implement [`LiveView`] on a new type, and define the
+//! [`LiveView::Events`] tuple, [`LiveView::mount`] and [`LiveView::render`]
+//! methods.
 //!
 //! ```
 //! use submillisecond_live_view::prelude::*;
@@ -29,22 +32,14 @@
 //!
 //! #[derive(Clone, Serialize, Deserialize)]
 //! struct Counter {
-//!     count: usize,
+//!     count: u32,
 //! }
-//!
-//! #[derive(Serialize, Deserialize)]
-//! struct Increment {}
-//!
-//! #[derive(Serialize, Deserialize)]
-//! struct Decrement {}
 //!
 //! impl LiveView for Counter {
 //!     type Events = (Increment, Decrement);
 //!
 //!     fn mount(_uri: Uri, _socket: Option<Socket>) -> Self {
-//!         Counter {
-//!             count: 0,
-//!         }
+//!         Counter { count: 0 }
 //!     }
 //!
 //!     fn render(&self) -> Rendered {
@@ -55,17 +50,34 @@
 //!         }
 //!     }
 //! }
+//!
+//! #[derive(Serialize, Deserialize)]
+//! struct Increment {}
+//!
+//! impl LiveViewEvent<Increment> for Counter {
+//!     fn handle(state: &mut Self, _event: Increment) {
+//!         state.count += 1;
+//!     }
+//! }
+//!
+//! #[derive(Serialize, Deserialize)]
+//! struct Decrement {}
+//!
+//! impl LiveViewEvent<Decrement> for Counter {
+//!     fn handle(state: &mut Self, _event: Decrement) {
+//!         state.count -= 1;
+//!     }
+//! }
 //! ```
 //!
 //! Finally, serve your submillisecond app with the `Counter`.
 //!
 //! ```
 //! use submillisecond::{router, Application};
-//! use submillisecond_live_view::prelude::*;
 //!
 //! fn main() -> std::io::Result<()> {
 //!     Application::new(router! {
-//!         GET "/" => Counter::handle()
+//!         GET "/" => Counter::handler()
 //!     })
 //!     .serve("127.0.0.1:3000")
 //! }
@@ -77,14 +89,16 @@
 //! which is available under [`submillisecond_live_view::html!`](html!).
 //!
 //! Docs for the syntax of the `html!` macro are available on the maud website,
-//! but this section documents some syntax features which are specific to Submillisecond LiveView.
+//! but this section documents some syntax features which are specific to
+//! Submillisecond LiveView.
 //!
 //! [maud]: https://maud.lambda.xyz/
 //!
 //! #### Events
 //!
 //! Events can be defined with the `@click=(Increment)` syntax.
-//! Where `click` is the event name, and `Increment` is the event to be sent back to the server.
+//! Where `click` is the event name, and `Increment` is the event to be sent
+//! back to the server.
 //!
 //! This is syntax sugar for `phx-click=(std::any::type_name::<Increment>())`.
 //!
@@ -118,11 +132,13 @@
 //!
 //! #### Nesting Html
 //!
-//! Maud supports [partials], but there is a different syntax for nesting renders when using Submillisecond LiveView.
+//! Maud supports [partials], but there is a different syntax for nesting
+//! renders when using Submillisecond LiveView.
 //!
 //! Nested renders should use the `@(nested)` syntax.
 //! If HTML created with the `html!` macro is nested without the `@` prefix,
-//! then it will be rendered as a static string on the page and the content will not be dynamic.
+//! then it will be rendered as a static string on the page and the content will
+//! not be dynamic.
 //!
 //! **Example**
 //!
@@ -155,8 +171,11 @@ mod live_view;
 mod manager;
 mod maud;
 
+#[doc(hidden)]
+pub use maud_live_view;
+pub use maud_live_view::html;
+
 pub use crate::live_view::*;
-pub use ::maud_live_view::html;
 
 /// Prelude
 pub mod prelude {
