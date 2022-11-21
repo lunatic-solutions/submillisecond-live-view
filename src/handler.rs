@@ -76,7 +76,6 @@ where
             };
 
             ws.on_upgrade(self.live_view.clone(), |conn, live_view| {
-                println!("Waiting for join");
                 let (mut socket, mut message) = match wait_for_join(conn) {
                     Ok((socket, message)) => (socket, message),
                     Err(err) => {

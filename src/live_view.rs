@@ -35,18 +35,20 @@ pub trait LiveView: Sized {
 
     /// The LiveView entry-point.
     ///
-    /// Mount is invoked twice: once to do the initial page load, and again to establish the live socket.
+    /// Mount is invoked twice: once to do the initial page load, and again to
+    /// establish the live socket.
     fn mount(uri: Uri, socket: Option<Socket>) -> Self;
 
     /// Renders a template.
     ///
-    /// This callback is invoked whenever LiveView detects new content must be rendered and sent to the client.
-    fn render(&self) -> Rendered;
+    /// This callback is invoked whenever LiveView detects new content must be
+    /// rendered and sent to the client.
+    fn render(&self) -> Rendered<Self>;
 
     /// Html head content, including page title, meta tags, styles and scripts.
     ///
-    /// By default, the LiveView JavaScript is included when the `liveview_js` feature flag is
-    /// enabled.
+    /// By default, the LiveView JavaScript is included when the `liveview_js`
+    /// feature flag is enabled.
     ///
     /// # Example
     ///
@@ -66,10 +68,11 @@ pub trait LiveViewEvent<E> {
     fn handle(state: &mut Self, event: E);
 }
 
-/// Event list is a trait to handle an incoming live view events and route them to the event
-/// handlers.
+/// Event list is a trait to handle an incoming live view events and route them
+/// to the event handlers.
 pub trait EventList<T> {
-    /// Handles an event, returning a Result, with a bool indicating if the event was handled or not.
+    /// Handles an event, returning a Result, with a bool indicating if the
+    /// event was handled or not.
     fn handle_event(state: &mut T, event: Event) -> Result<bool, DeserializeEventError>;
 }
 

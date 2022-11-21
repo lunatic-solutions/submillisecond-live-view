@@ -8,6 +8,8 @@ use crate::manager::{Join, LiveViewManager};
 use crate::socket::{Event, JoinEvent, RawSocket, Socket};
 use crate::{EventList, LiveView};
 
+pub type AnonymousEventHandler<T> = fn(state: &mut T, event_name: &str) -> bool;
+
 #[derive(Clone, Debug, Error, Serialize, Deserialize)]
 pub enum EventHandlerError {
     #[error("deserialize event failed")]
@@ -120,7 +122,16 @@ fn event_handler<L, T>(
             EventHandlerMessage::HandleEvent(parent, tag, event) => {
                 let reply = match &mut state {
                     Some((live_view, state)) => {
-                        match <T::Events as EventList<T>>::handle_event(live_view, event.clone()) {
+                        println!("Handling anonymous event");
+                        let handled = if !state.handle_anonymous_event(live_view, &event.name) {
+                            <T::Events as EventList<T>>::handle_event(live_view, event.clone())
+                        } else {
+                            Ok(true)
+                        };
+
+                        println!("we here now");
+
+                        match handled {
                             Ok(handled) => {
                                 if !handled {
                                     Err(EventHandlerError::UnknownEvent)

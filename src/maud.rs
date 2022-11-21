@@ -73,7 +73,6 @@ impl<T> LiveViewManager<T> for LiveViewMaud<T>
 where
     T: LiveView,
 {
-    type State = Rendered;
     // type Reply = Value;
     type Error = LiveViewMaudError;
 
@@ -97,7 +96,7 @@ where
 
         let head = T::head();
 
-        let body = html! {
+        let body: Rendered<()> = html! {
             (DOCTYPE)
             html lang="en" {
                 head {
@@ -142,7 +141,7 @@ where
         &self,
         socket: Socket,
         event: JoinEvent,
-    ) -> LiveViewManagerResult<Join<T, Self::State, Value>, Self::Error> {
+    ) -> LiveViewManagerResult<Join<T, Value>, Self::Error> {
         let key: Hmac<Sha256> = Hmac::new_from_slice(&secret()).expect("unable to encode secret");
         let session: Result<Session, _> = event.session.verify_with_key(&key);
 
@@ -182,7 +181,7 @@ where
     fn handle_event(
         &self,
         _event: Event,
-        state: &mut Self::State,
+        state: &mut Rendered<T>,
         live_view: &T,
     ) -> LiveViewManagerResult<Option<Value>, Self::Error> {
         let rendered = live_view.render();

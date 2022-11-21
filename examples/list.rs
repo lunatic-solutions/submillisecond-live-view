@@ -24,7 +24,7 @@ impl LiveView for List {
         }
     }
 
-    fn render(&self) -> Rendered {
+    fn render(&self) -> Rendered<Self> {
         html! {
             button @click=(Add) { "Increment" }
             button @click=(Remove) { "Decrement" }

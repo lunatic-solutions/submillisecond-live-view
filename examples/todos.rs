@@ -35,7 +35,7 @@ impl LiveView for Todos {
         }
     }
 
-    fn render(&self) -> Rendered {
+    fn render(&self) -> Rendered<Self> {
         let rendered = html! {
             section.todoapp {
                 @(self.render_header())
@@ -172,7 +172,7 @@ enum Filter {
 }
 
 impl Todos {
-    fn render_header(&self) -> Rendered {
+    fn render_header(&self) -> Rendered<Self> {
         html! {
             header.header {
                 h1 { "todos" }
@@ -195,7 +195,7 @@ impl Todos {
         }
     }
 
-    fn render_main(&self) -> Rendered {
+    fn render_main(&self) -> Rendered<Self> {
         let visible_todos: Vec<_> = match self.filter {
             Filter::All => self.todos.iter().collect(),
             Filter::Active => self.todos.iter().filter(|todo| !todo.completed).collect(),
@@ -247,7 +247,7 @@ impl Todos {
         }
     }
 
-    fn render_footer(&self) -> Rendered {
+    fn render_footer(&self) -> Rendered<Self> {
         let remaining_todos = self.todos.iter().filter(|todo| !todo.completed).count();
         let filter_links = [
             ("All", Filter::All),

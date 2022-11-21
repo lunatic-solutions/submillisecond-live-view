@@ -5,6 +5,7 @@ use serde_json::Value;
 use submillisecond::response::Response;
 use submillisecond::RequestContext;
 
+use crate::rendered::Rendered;
 use crate::socket::{Event, JoinEvent, Socket};
 use crate::LiveView;
 
@@ -14,7 +15,6 @@ where
     Self: Sized,
     T: LiveView,
 {
-    type State: Serialize + for<'de> Deserialize<'de>;
     // type Reply: Serialize;
     type Error: fmt::Display;
 
@@ -26,13 +26,13 @@ where
         &self,
         socket: Socket,
         event: JoinEvent,
-    ) -> LiveViewManagerResult<Join<T, Self::State, Value>, Self::Error>;
+    ) -> LiveViewManagerResult<Join<T, Value>, Self::Error>;
 
     /// Handle an event.
     fn handle_event(
         &self,
         event: Event,
-        state: &mut Self::State,
+        state: &mut Rendered<T>,
         live_view: &T,
     ) -> LiveViewManagerResult<Option<Value>, Self::Error>;
 }
@@ -48,9 +48,9 @@ pub(crate) enum LiveViewManagerResult<T, E> {
     FatalError(E),
 }
 
-pub(crate) struct Join<L, S, R> {
+pub(crate) struct Join<L, R> {
     pub(crate) live_view: L,
-    pub(crate) state: S,
+    pub(crate) state: Rendered<L>,
     pub(crate) reply: R,
 }
 
