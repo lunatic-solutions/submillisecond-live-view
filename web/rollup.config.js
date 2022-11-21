@@ -7,7 +7,7 @@ function createExport(fileName, nodeEnv, minify) {
   return {
     input: "main.js",
     output: {
-      file: `../${fileName}`,
+      file: `../dist/${fileName}`,
       format: "umd",
     },
     plugins: [

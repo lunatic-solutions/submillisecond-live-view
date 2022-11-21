@@ -25,10 +25,10 @@ use crate::socket::{Event, JoinEvent, Socket};
 use crate::{self as submillisecond_live_view, html, LiveView};
 
 #[cfg(all(debug_assertions, feature = "liveview_js"))]
-const LIVEVIEW_JS: &str = include_str!("../liveview-debug.js");
+const LIVEVIEW_JS: &str = include_str!("../dist/liveview-debug.js");
 
 #[cfg(all(not(debug_assertions), feature = "liveview_js"))]
-const LIVEVIEW_JS: &str = include_str!("../liveview-release.js");
+const LIVEVIEW_JS: &str = include_str!("../dist/liveview-release.js");
 
 #[derive(Serialize, Deserialize)]
 #[serde(bound = "")]
