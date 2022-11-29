@@ -16,6 +16,7 @@ use crate::event_handler::EventHandler;
 use crate::manager::LiveViewManager;
 use crate::maud::LiveViewMaud;
 use crate::socket::{Message, ProtocolEvent, RawSocket, SocketError, SocketMessage};
+use crate::template::TemplateProcess;
 use crate::LiveView;
 
 type Manager<T> = LiveViewMaud<T>;
@@ -28,8 +29,10 @@ pub struct LiveViewHandler<L, T> {
 
 /// Trait used to create a handler from a LiveView.
 pub trait LiveViewRouter: Sized {
-    /// Create handler for LiveView.
-    fn handler() -> LiveViewHandler<Manager<Self>, Self>;
+    /// Create handler for LiveView with a html template.
+    ///
+    /// The LiveView is injected into the body tag of the template.
+    fn handler(template: &str) -> LiveViewHandler<Manager<Self>, Self>;
 }
 
 trait LogError {
@@ -41,7 +44,9 @@ impl<T> LiveViewRouter for T
 where
     T: LiveView,
 {
-    fn handler() -> LiveViewHandler<Manager<Self>, Self> {
+    fn handler(template: &str) -> LiveViewHandler<Manager<Self>, Self> {
+        TemplateProcess::lookup_or_start(template).expect("failed to load index.html");
+
         LiveViewHandler::new(Manager::default())
     }
 }

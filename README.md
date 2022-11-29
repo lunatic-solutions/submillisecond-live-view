@@ -49,7 +49,7 @@ use submillisecond_live_view::prelude::*;
 
 fn main() -> std::io::Result<()> {
     Application::new(router! {
-        "/" => Counter::handler()
+        "/" => Counter::handler("index.html")
         "/static" => static_router!("./static")
     })
     .serve("127.0.0.1:3000")
