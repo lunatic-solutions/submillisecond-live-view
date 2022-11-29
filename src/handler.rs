@@ -31,8 +31,16 @@ pub struct LiveViewHandler<L, T> {
 pub trait LiveViewRouter: Sized {
     /// Create handler for LiveView with a html template.
     ///
-    /// The LiveView is injected into the body tag of the template.
-    fn handler(template: &str) -> LiveViewHandler<Manager<Self>, Self>;
+    /// The LiveView is injected into the selector of the template.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// router! {
+    ///     GET "/" => MyLiveView::handler("index.html", "#app")
+    /// }
+    /// ```
+    fn handler(template: &str, selector: &str) -> LiveViewHandler<Manager<Self>, Self>;
 }
 
 trait LogError {
@@ -44,8 +52,8 @@ impl<T> LiveViewRouter for T
 where
     T: LiveView,
 {
-    fn handler(template: &str) -> LiveViewHandler<Manager<Self>, Self> {
-        TemplateProcess::lookup_or_start(template).expect("failed to load index.html");
+    fn handler(template: &str, selector: &str) -> LiveViewHandler<Manager<Self>, Self> {
+        TemplateProcess::lookup_or_start(template, selector).expect("failed to load index.html");
 
         LiveViewHandler::new(Manager::default())
     }

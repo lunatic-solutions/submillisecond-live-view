@@ -8,7 +8,7 @@ use submillisecond_live_view::prelude::*;
 
 fn main() -> std::io::Result<()> {
     Application::new(router! {
-        GET "/" => Clock::handler("examples/clock.html")
+        GET "/" => Clock::handler("examples/clock.html", "#app")
         "/static" => static_router!("./static")
     })
     .serve("127.0.0.1:3000")

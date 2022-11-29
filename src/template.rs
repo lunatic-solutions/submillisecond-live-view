@@ -32,12 +32,16 @@ pub struct TemplateProcess {
 #[abstract_process(visibility = pub(crate))]
 impl TemplateProcess {
     #[init]
-    fn init(_: ProcessRef<Self>, html: String) -> Self {
+    fn init(_: ProcessRef<Self>, (html, selector): (String, String)) -> Self {
         let document = Document::from(&html.replace(0x0 as char, ""));
         document.select("head").append_html(format!(
             r#"{HTML_SEPARATOR}<script type="text/javascript">{LIVEVIEW_JS}</script>"#,
         ));
-        document.select("body").append_html(HTML_SEPARATOR);
+        let mut selection = document.select(&selector);
+        if !selection.exists() {
+            panic!("selector '{selector}' does not exist");
+        }
+        selection.append_html(HTML_SEPARATOR);
         let html_parts = document
             .html()
             .to_string()
@@ -82,12 +86,15 @@ impl TemplateProcess {
         ProcessRef::lookup(&TEMPLATE_PROCESS_ID)
     }
 
-    pub fn lookup_or_start<P: AsRef<Path>>(path: P) -> io::Result<ProcessRef<Self>> {
+    pub fn lookup_or_start<P: AsRef<Path>>(
+        path: P,
+        selector: &str,
+    ) -> io::Result<ProcessRef<Self>> {
         let process = match ProcessRef::lookup(&TEMPLATE_PROCESS_ID) {
             Some(process) => process,
             None => {
                 let template = fs::read_to_string(path)?;
-                Self::start_link(template, Some(&TEMPLATE_PROCESS_ID))
+                Self::start_link((template, selector.to_string()), Some(&TEMPLATE_PROCESS_ID))
             }
         };
 

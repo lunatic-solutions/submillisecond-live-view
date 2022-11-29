@@ -23,7 +23,7 @@
 //! ```
 //!
 //! We'll also need an index.html file next to our Cargo.toml file to act as a
-//! template for our LiveView.
+//! template for our LiveView. The LiveView will be injected in the #app div.
 //!
 //! ```html
 //! <html>
@@ -31,7 +31,7 @@
 //!      <title>My LiveView App</title>
 //!   </head>
 //!   <body>
-//!     <!-- LiveView injected here -->
+//!     <div id="app"></div>
 //!   </body>
 //! </html>
 //! ```
@@ -91,7 +91,7 @@
 //!
 //! fn main() -> std::io::Result<()> {
 //!     Application::new(router! {
-//!         GET "/" => Counter::handler("index.html")
+//!         GET "/" => Counter::handler("index.html", "#app")
 //!     })
 //!     .serve("127.0.0.1:3000")
 //! }

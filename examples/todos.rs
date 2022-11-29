@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 fn main() -> std::io::Result<()> {
     Application::new(router! {
-        GET "/" => Todos::handler("examples/todos.html")
+        GET "/" => Todos::handler("examples/todos.html", "#app")
         "/static" => static_router!("./static")
     })
     .serve("127.0.0.1:3000")
