@@ -28,7 +28,7 @@
 //! ```html
 //! <html>
 //!   <head>
-//!      <title>My LiveView App</title>
+//!     <title>My LiveView App</title>
 //!   </head>
 //!   <body>
 //!     <div id="app"></div>
