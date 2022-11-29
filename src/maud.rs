@@ -3,7 +3,6 @@ use std::env;
 use std::marker::PhantomData;
 
 pub use ::maud_live_view::*;
-use const_random::const_random;
 use hmac::{Hmac, Mac};
 use jwt::{SignWithKey, VerifyWithKey};
 use lunatic_log::error;
@@ -106,7 +105,12 @@ where
                     @for meta in &head.meta {
                         // Dynamic attributes aren't supported yet.
                         // See <https://github.com/lambda-fairy/maud/issues/240>
-                        @let attrs = meta.attrs.iter().map(|attr| format!("{}=\"{}\"", attr.name, attr.value)).collect::<Vec<_>>().join(" ");
+                        @let attrs = meta
+                            .attrs
+                            .iter()
+                            .map(|attr| format!("{}=\"{}\"", attr.name, attr.value))
+                            .collect::<Vec<_>>()
+                            .join(" ");
                         (PreEscaped(format!("<meta {attrs}>")))
                     }
                     @for style in head.styles {
@@ -193,7 +197,11 @@ where
     }
 }
 
-const SECRET_DEFAULT: [u8; 32] = const_random!([u8; 32]);
+#[cfg(debug_assertions)]
+const SECRET_DEFAULT: [u8; 32] = *b"liveview-debug-secret-csrf-token";
+
+#[cfg(not(debug_assertions))]
+const SECRET_DEFAULT: [u8; 32] = const_random::const_random!([u8; 32]);
 
 fn secret() -> Cow<'static, [u8]> {
     match env::var("LIVE_VIEW_SECRET") {
