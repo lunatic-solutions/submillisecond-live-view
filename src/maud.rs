@@ -5,6 +5,7 @@ use std::marker::PhantomData;
 pub use ::maud_live_view::*;
 use hmac::{Hmac, Mac};
 use jwt::VerifyWithKey;
+use lunatic::process::ProcessRef;
 use lunatic_log::error;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -24,6 +25,7 @@ use crate::LiveView;
 #[serde(bound = "")]
 pub struct LiveViewMaud<T> {
     phantom: PhantomData<T>,
+    template_process: ProcessRef<TemplateProcess>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -41,20 +43,20 @@ pub(crate) enum LiveViewMaudError {
     MissingUrl,
 }
 
-impl<T> Clone for LiveViewMaud<T> {
-    fn clone(&self) -> Self {
-        Self {
-            phantom: self.phantom,
+impl<T> LiveViewMaud<T> {
+    pub(crate) fn new(template_process: ProcessRef<TemplateProcess>) -> Self {
+        LiveViewMaud {
+            phantom: PhantomData,
+            template_process,
         }
     }
 }
 
-impl<T> Copy for LiveViewMaud<T> {}
-
-impl<T> Default for LiveViewMaud<T> {
-    fn default() -> Self {
+impl<T> Clone for LiveViewMaud<T> {
+    fn clone(&self) -> Self {
         Self {
-            phantom: PhantomData,
+            phantom: self.phantom,
+            template_process: self.template_process.clone(),
         }
     }
 }
@@ -69,9 +71,7 @@ where
 
     fn handle_request(&self, req: RequestContext) -> Response {
         let content = T::mount(req.uri().clone(), None).render().to_string();
-        let template_process =
-            TemplateProcess::lookup().expect("TemplateProcess should be started");
-        let html = template_process.render(content);
+        let html = self.template_process.render(content);
 
         Response::builder()
             .header("Content-Type", "text/html; charset=UTF-8")

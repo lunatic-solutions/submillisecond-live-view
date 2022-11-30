@@ -1,4 +1,3 @@
-use std::path::Path;
 use std::{fs, io};
 
 use hmac::{Hmac, Mac};
@@ -82,19 +81,13 @@ impl TemplateProcess {
         html_parts.into_iter().collect()
     }
 
-    pub fn lookup() -> Option<ProcessRef<Self>> {
-        ProcessRef::lookup(&TEMPLATE_PROCESS_ID)
-    }
-
-    pub fn lookup_or_start<P: AsRef<Path>>(
-        path: P,
-        selector: &str,
-    ) -> io::Result<ProcessRef<Self>> {
-        let process = match ProcessRef::lookup(&TEMPLATE_PROCESS_ID) {
+    pub fn lookup_or_start(path: &str, selector: &str) -> io::Result<ProcessRef<Self>> {
+        let name = format!("{prefix}-{path}-{selector}", prefix = &*TEMPLATE_PROCESS_ID);
+        let process = match ProcessRef::lookup(&name) {
             Some(process) => process,
             None => {
                 let template = fs::read_to_string(path)?;
-                Self::start_link((template, selector.to_string()), Some(&TEMPLATE_PROCESS_ID))
+                Self::start_link((template, selector.to_string()), Some(&name))
             }
         };
 

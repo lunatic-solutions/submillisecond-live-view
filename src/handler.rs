@@ -53,9 +53,12 @@ where
     T: LiveView,
 {
     fn handler(template: &str, selector: &str) -> LiveViewHandler<Manager<Self>, Self> {
-        TemplateProcess::lookup_or_start(template, selector).expect("failed to load index.html");
+        // TODO lookup_or_start could result in a race condition. Need to solve this
+        // somehow.
+        let process = TemplateProcess::lookup_or_start(template, selector)
+            .expect("failed to load index.html");
 
-        LiveViewHandler::new(Manager::default())
+        LiveViewHandler::new(Manager::new(process))
     }
 }
 
