@@ -81,7 +81,6 @@ impl TemplateProcess {
 
     pub fn start(path: &str, selector: &str) -> io::Result<ProcessRef<Self>> {
         let name = Self::process_name(path, selector);
-        println!("Starting '{name}'");
         let template = fs::read_to_string(path)?;
         let process = Self::start_link((template, selector.to_string()), Some(&name));
         Ok(process)
@@ -89,7 +88,6 @@ impl TemplateProcess {
 
     pub fn lookup(path: &str, selector: &str) -> Option<ProcessRef<Self>> {
         let name = Self::process_name(path, selector);
-        println!("Looking up '{name}'");
         ProcessRef::lookup(&name)
     }
 
