@@ -4,12 +4,12 @@ Examples can be run with `cargo run --example <example-name>`.
 
 **Clock**
 
-![Clock](static/clock.png)
+![Clock](../static/clock.png)
 
 **Counter**
 
-![Counter](static/counter.png)
+![Counter](../static/counter.png)
 
 **Todos**
 
-![Todos](static/todos.png)
+![Todos](../static/todos.png)
