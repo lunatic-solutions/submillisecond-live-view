@@ -5,16 +5,14 @@ use jwt::SignWithKey;
 use lunatic::abstract_process;
 use lunatic::process::{ProcessRef, StartProcess};
 use nipper::Document;
-use once_cell::sync::Lazy;
 use rand::distributions::Alphanumeric;
 use rand::Rng;
 use sha2::Sha256;
-use uuid::Uuid;
 
 use crate::csrf::CsrfToken;
 use crate::maud::{secret, Session};
 
-static TEMPLATE_PROCESS_ID: Lazy<String> = Lazy::new(|| Uuid::new_v4().to_string());
+const TEMPLATE_PROCESS_ID: &str = "e6cdcfeb-8552-4de2-8e8b-484724380248";
 
 #[cfg(all(debug_assertions, feature = "liveview_js"))]
 const LIVEVIEW_JS: &str = include_str!("../dist/liveview-debug.js");
@@ -81,16 +79,21 @@ impl TemplateProcess {
         html_parts.into_iter().collect()
     }
 
-    pub fn lookup_or_start(path: &str, selector: &str) -> io::Result<ProcessRef<Self>> {
-        let name = format!("{prefix}-{path}-{selector}", prefix = &*TEMPLATE_PROCESS_ID);
-        let process = match ProcessRef::lookup(&name) {
-            Some(process) => process,
-            None => {
-                let template = fs::read_to_string(path)?;
-                Self::start_link((template, selector.to_string()), Some(&name))
-            }
-        };
-
+    pub fn start(path: &str, selector: &str) -> io::Result<ProcessRef<Self>> {
+        let name = Self::process_name(path, selector);
+        println!("Starting '{name}'");
+        let template = fs::read_to_string(path)?;
+        let process = Self::start_link((template, selector.to_string()), Some(&name));
         Ok(process)
+    }
+
+    pub fn lookup(path: &str, selector: &str) -> Option<ProcessRef<Self>> {
+        let name = Self::process_name(path, selector);
+        println!("Looking up '{name}'");
+        ProcessRef::lookup(&name)
+    }
+
+    fn process_name(path: &str, selector: &str) -> String {
+        format!("{TEMPLATE_PROCESS_ID}-{path}-{selector}")
     }
 }
