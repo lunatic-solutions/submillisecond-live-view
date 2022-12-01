@@ -2,14 +2,14 @@
 
 Examples can be run with `cargo run --example <example-name>`.
 
-**Clock**
+### Clock
 
-![Clock](../static/clock.png)
+<img src="../static/clock.png" alt="Clock" width="600">
 
-**Counter**
+### Counter
 
-![Counter](../static/counter.png)
+<img src="../static/counter.png" alt="Counter" width="600">
 
-**Todos**
+### Todos
 
-![Todos](../static/todos.png)
+<img src="../static/todos.png" alt="Todos" width="600">
