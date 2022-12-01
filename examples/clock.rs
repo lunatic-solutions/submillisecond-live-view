@@ -61,7 +61,7 @@ impl LiveView for Clock {
         }
     }
 
-    fn render(&self) -> Rendered {
+    fn render(&self) -> Rendered<Self> {
         let tzs = chrono_tz::TZ_VARIANTS.iter();
 
         html! {

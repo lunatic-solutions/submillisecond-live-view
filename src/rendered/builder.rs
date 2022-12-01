@@ -1,37 +1,42 @@
 //! Builder to build [`Rendered`], used by the `html!` macro.
 
+use std::fmt;
+use std::marker::PhantomData;
+
 use slotmap::{new_key_type, SlotMap};
 
 use super::dynamic::DynamicList;
 use super::{Dynamic, DynamicItems, Dynamics, Rendered, RenderedListItem};
+use crate::event_handler::AnonymousEventHandler;
 
 new_key_type! { struct NodeId; }
 
 /// Rendered builder, used by the `html!` macro.
 #[derive(Debug)]
-pub struct RenderedBuilder {
-    nodes: SlotMap<NodeId, Node>,
+pub struct RenderedBuilder<T = ()> {
+    nodes: SlotMap<NodeId, Node<T>>,
     last_node: NodeId,
 }
 
 #[derive(Debug)]
-struct Node {
+struct Node<T> {
     parent: NodeId,
-    value: NodeValue,
+    value: NodeValue<T>,
 }
 
 #[derive(Debug)]
-enum NodeValue {
-    Items(ItemsNode),
+enum NodeValue<T> {
+    Items(ItemsNode<T>),
     List(ListNode),
-    Nested(Rendered),
+    Nested(Rendered<T>),
 }
 
-#[derive(Debug, Default)]
-struct ItemsNode {
+struct ItemsNode<T> {
     statics: Vec<String>,
     dynamics: Vec<DynamicNode>,
     templates: Vec<Vec<String>>,
+    anonymous_events: Vec<usize>,
+    phantom: PhantomData<T>,
 }
 
 #[derive(Debug)]
@@ -47,7 +52,7 @@ enum DynamicNode {
     Nested(NodeId),
 }
 
-impl RenderedBuilder {
+impl<T> RenderedBuilder<T> {
     /// Creates a new [`RenderedBuilder`].
     pub fn new() -> Self {
         let mut nodes = SlotMap::with_key();
@@ -59,13 +64,18 @@ impl RenderedBuilder {
     }
 
     /// Builds into a [`Rendered`].
-    pub fn build(mut self) -> Rendered {
+    pub fn build(mut self) -> Rendered<T> {
         let root = self.nodes.remove(self.last_node).unwrap();
         root.build(&mut self)
     }
 
+    /// Pushes an anonymous event.
+    pub fn push_anonymous_event(&mut self, handler: AnonymousEventHandler<T>) {
+        self.last_node_mut().push_anonymous_event(handler)
+    }
+
     /// Pushes a [`Rendered`] to be nested.
-    pub fn push_nested(&mut self, other: Rendered) {
+    pub fn push_nested(&mut self, other: Rendered<T>) {
         let parent = self.parent_of(self.last_node).unwrap();
         let id = self
             .nodes
@@ -132,7 +142,7 @@ impl RenderedBuilder {
         }
     }
 
-    fn last_node_mut(&mut self) -> &mut Node {
+    fn last_node_mut(&mut self) -> &mut Node<T> {
         self.nodes.get_mut(self.last_node).unwrap()
     }
 
@@ -140,7 +150,7 @@ impl RenderedBuilder {
         self.nodes.get(id).map(|node| node.parent)
     }
 
-    fn push_dynamic_node(&mut self, value: NodeValue) {
+    fn push_dynamic_node(&mut self, value: NodeValue<T>) {
         let id = self.nodes.insert(Node::new(self.last_node, value));
         let last_node = self.last_node_mut();
         match &mut last_node.value {
@@ -161,22 +171,30 @@ impl RenderedBuilder {
     }
 }
 
-impl Default for RenderedBuilder {
+impl<T> Default for RenderedBuilder<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl Node {
-    fn new(parent: NodeId, value: NodeValue) -> Self {
+impl<T> Node<T> {
+    fn new(parent: NodeId, value: NodeValue<T>) -> Self {
         Node { parent, value }
     }
 
-    fn build(self, tree: &mut RenderedBuilder) -> Rendered {
+    fn build(self, tree: &mut RenderedBuilder<T>) -> Rendered<T> {
         match self.value {
             NodeValue::Items(items) => items.build(tree),
             NodeValue::List(list) => list.build(tree),
             NodeValue::Nested(nested) => nested,
+        }
+    }
+
+    fn push_anonymous_event(&mut self, handler: AnonymousEventHandler<T>) {
+        match &mut self.value {
+            NodeValue::Items(items) => items.push_anonymous_event(handler),
+            NodeValue::List(_) => todo!(),
+            NodeValue::Nested(_) => todo!(),
         }
     }
 
@@ -197,8 +215,8 @@ impl Node {
     }
 }
 
-impl ItemsNode {
-    fn build(mut self, tree: &mut RenderedBuilder) -> Rendered {
+impl<T> ItemsNode<T> {
+    fn build(mut self, tree: &mut RenderedBuilder<T>) -> Rendered<T> {
         let dynamics: Vec<_> = self
             .dynamics
             .into_iter()
@@ -211,7 +229,13 @@ impl ItemsNode {
             statics: self.statics,
             dynamics: Dynamics::Items(DynamicItems(dynamics)),
             templates: self.templates,
+            anonymous_events: self.anonymous_events,
+            phantom: PhantomData,
         }
+    }
+
+    fn push_anonymous_event(&mut self, handler: AnonymousEventHandler<T>) {
+        self.anonymous_events.push(handler as usize);
     }
 
     fn push_static(&mut self, s: &str) {
@@ -227,8 +251,31 @@ impl ItemsNode {
     }
 }
 
+impl<T> Default for ItemsNode<T> {
+    fn default() -> Self {
+        Self {
+            statics: Default::default(),
+            dynamics: Default::default(),
+            templates: Default::default(),
+            anonymous_events: Default::default(),
+            phantom: PhantomData,
+        }
+    }
+}
+
+impl<T> fmt::Debug for ItemsNode<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ItemsNode")
+            .field("statics", &self.statics)
+            .field("dynamics", &self.dynamics)
+            .field("templates", &self.templates)
+            .field("anonymous_events", &self.anonymous_events.len())
+            .finish()
+    }
+}
+
 impl ListNode {
-    fn build(self, tree: &mut RenderedBuilder) -> Rendered {
+    fn build<T>(self, tree: &mut RenderedBuilder<T>) -> Rendered<T> {
         let mut templates = vec![];
 
         let dynamics: Vec<Vec<_>> = self
@@ -246,6 +293,8 @@ impl ListNode {
             statics: self.statics,
             dynamics: Dynamics::List(DynamicList(dynamics)),
             templates,
+            anonymous_events: vec![],
+            phantom: PhantomData,
         }
     }
 
@@ -275,7 +324,7 @@ impl Default for ListNode {
 }
 
 impl DynamicNode {
-    fn build_items(self, tree: &mut RenderedBuilder) -> Dynamic<Rendered> {
+    fn build_items<T>(self, tree: &mut RenderedBuilder<T>) -> Dynamic<Rendered<T>> {
         match self {
             DynamicNode::String(s) => Dynamic::String(s),
             DynamicNode::Nested(id) => {
@@ -300,6 +349,8 @@ impl DynamicNode {
                                 statics: nested.statics,
                                 dynamics: Dynamics::List(list),
                                 templates: nested.templates,
+                                anonymous_events: nested.anonymous_events,
+                                phantom: PhantomData,
                             })
                         }
                     }
@@ -308,9 +359,9 @@ impl DynamicNode {
         }
     }
 
-    fn build_list(
+    fn build_list<T>(
         self,
-        tree: &mut RenderedBuilder,
+        tree: &mut RenderedBuilder<T>,
         templates: &mut Vec<Vec<String>>,
     ) -> Dynamic<RenderedListItem> {
         match self {
@@ -381,6 +432,8 @@ fn vecs_match<T: PartialEq>(a: &Vec<T>, b: &Vec<T>) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use std::marker::PhantomData;
+
     use pretty_assertions::assert_eq;
 
     use crate::maud::DOCTYPE;
@@ -392,7 +445,7 @@ mod tests {
 
     #[lunatic::test]
     fn basic() {
-        let rendered = html! {
+        let rendered: Rendered<()> = html! {
             p { "Hello, world!" }
         };
 
@@ -403,7 +456,7 @@ mod tests {
 
     #[lunatic::test]
     fn dynamic() {
-        let rendered = html! {
+        let rendered: Rendered<()> = html! {
             (DOCTYPE)
             a href={ ("hey") "/lambda-fairy/maud" } {
                 "Hello, world!"
@@ -422,7 +475,9 @@ mod tests {
                     Dynamic::String("<!DOCTYPE html>".to_string()),
                     Dynamic::String("hey".to_string())
                 ])),
-                templates: vec![]
+                templates: vec![],
+                anonymous_events: vec![],
+                phantom: PhantomData,
             }
         );
     }
@@ -430,7 +485,7 @@ mod tests {
     #[lunatic::test]
     fn if_statement_false() {
         let logged_in = false;
-        let rendered = html! {
+        let rendered: Rendered<()> = html! {
             "Welcome "
             @if logged_in {
                 "person"
@@ -443,12 +498,14 @@ mod tests {
             Rendered {
                 statics: vec!["Welcome ".to_string(), ".".to_string()],
                 dynamics: Dynamics::Items(DynamicItems(vec![Dynamic::String("".to_string())])),
-                templates: vec![]
+                templates: vec![],
+                anonymous_events: vec![],
+                phantom: PhantomData,
             }
         );
 
         let logged_in = false;
-        let rendered = html! {
+        let rendered: Rendered<()> = html! {
             "Welcome "
             @if logged_in {
                 (logged_in.to_string())
@@ -461,7 +518,9 @@ mod tests {
             Rendered {
                 statics: vec!["Welcome ".to_string(), ".".to_string()],
                 dynamics: Dynamics::Items(DynamicItems(vec![Dynamic::String("".to_string())])),
-                templates: vec![]
+                templates: vec![],
+                anonymous_events: vec![],
+                phantom: PhantomData,
             }
         );
     }
@@ -469,7 +528,7 @@ mod tests {
     #[lunatic::test]
     fn if_statement_true() {
         let logged_in = true;
-        let rendered = html! {
+        let rendered: Rendered<()> = html! {
             "Welcome "
             @if logged_in {
                 "person"
@@ -485,13 +544,17 @@ mod tests {
                     statics: vec!["person".to_string()],
                     dynamics: Dynamics::Items(DynamicItems(vec![])),
                     templates: vec![],
+                    anonymous_events: vec![],
+                    phantom: PhantomData,
                 })])),
                 templates: vec![],
+                anonymous_events: vec![],
+                phantom: PhantomData,
             }
         );
 
         let logged_in = true;
-        let rendered = html! {
+        let rendered: Rendered<()> = html! {
             "Welcome "
             @if logged_in {
                 (logged_in.to_string())
@@ -509,8 +572,12 @@ mod tests {
                         "true".to_string()
                     )])),
                     templates: vec![],
+                    anonymous_events: vec![],
+                    phantom: PhantomData,
                 })])),
                 templates: vec![],
+                anonymous_events: vec![],
+                phantom: PhantomData,
             }
         );
     }
@@ -518,7 +585,7 @@ mod tests {
     #[lunatic::test]
     fn if_statement_let_some() {
         let user = Some("Bob");
-        let rendered = html! {
+        let rendered: Rendered<()> = html! {
             "Welcome "
             @if let Some(user) = user {
                 (user)
@@ -537,8 +604,12 @@ mod tests {
                         "Bob".to_string()
                     )])),
                     templates: vec![],
+                    anonymous_events: vec![],
+                    phantom: PhantomData,
                 })])),
                 templates: vec![],
+                anonymous_events: vec![],
+                phantom: PhantomData,
             }
         );
     }
@@ -546,7 +617,7 @@ mod tests {
     #[lunatic::test]
     fn if_statement_let_none() {
         let user: Option<&str> = None;
-        let rendered = html! {
+        let rendered: Rendered<()> = html! {
             "Welcome "
             @if let Some(user) = user {
                 (user)
@@ -563,15 +634,19 @@ mod tests {
                     statics: vec!["stranger".to_string()],
                     dynamics: Dynamics::Items(DynamicItems(vec![])),
                     templates: vec![],
+                    anonymous_events: vec![],
+                    phantom: PhantomData,
                 })])),
                 templates: vec![],
+                anonymous_events: vec![],
+                phantom: PhantomData,
             }
         );
     }
 
     #[lunatic::test]
     fn if_statement_nested() {
-        let render = |count: usize| {
+        let render = |count: usize| -> Rendered<()> {
             html! {
                 @if count >= 1 {
                     p { "Count is high" }
@@ -590,6 +665,8 @@ mod tests {
                 statics: vec!["".to_string(), "".to_string()],
                 dynamics: Dynamics::Items(DynamicItems(vec![Dynamic::String("".to_string())])),
                 templates: vec![],
+                anonymous_events: vec![],
+                phantom: PhantomData,
             }
         );
 
@@ -603,8 +680,12 @@ mod tests {
                     statics: vec!["<p>Count is high</p>".to_string(), "".to_string()],
                     dynamics: Dynamics::Items(DynamicItems(vec![Dynamic::String("".to_string())])),
                     templates: vec![],
+                    anonymous_events: vec![],
+                    phantom: PhantomData,
                 })])),
                 templates: vec![],
+                anonymous_events: vec![],
+                phantom: PhantomData,
             }
         );
 
@@ -620,10 +701,16 @@ mod tests {
                         statics: vec!["<p>Count is very high!</p>".to_string()],
                         dynamics: Dynamics::Items(DynamicItems(vec![])),
                         templates: vec![],
+                        anonymous_events: vec![],
+                        phantom: PhantomData,
                     })])),
                     templates: vec![],
+                    anonymous_events: vec![],
+                    phantom: PhantomData,
                 })])),
                 templates: vec![],
+                anonymous_events: vec![],
+                phantom: PhantomData,
             }
         );
     }
@@ -631,7 +718,7 @@ mod tests {
     #[lunatic::test]
     fn for_loop_empty() {
         #[allow(clippy::reversed_empty_ranges)]
-        let rendered = html! {
+        let rendered: Rendered<()> = html! {
             span { "Hello" }
             @for _ in 0..0 {
                 span { "Hi!" }
@@ -648,13 +735,15 @@ mod tests {
                 ],
                 dynamics: Dynamics::Items(DynamicItems(vec![Dynamic::String("".to_string())])),
                 templates: vec![],
+                anonymous_events: vec![],
+                phantom: PhantomData,
             }
         );
     }
 
     #[lunatic::test]
     fn for_loop_statics() {
-        let rendered = html! {
+        let rendered: Rendered<()> = html! {
             @for _ in 0..3 {
                 span { "Hi!" }
             }
@@ -668,8 +757,12 @@ mod tests {
                     statics: vec!["<span>Hi!</span>".to_string()],
                     dynamics: Dynamics::List(DynamicList(vec![vec![], vec![], vec![]])),
                     templates: vec![],
+                    anonymous_events: vec![],
+                    phantom: PhantomData,
                 })])),
                 templates: vec![],
+                anonymous_events: vec![],
+                phantom: PhantomData,
             }
         );
     }
@@ -677,7 +770,7 @@ mod tests {
     #[lunatic::test]
     fn for_loop_dynamics() {
         let names = ["John", "Joe", "Jim"];
-        let rendered = html! {
+        let rendered: Rendered<()> = html! {
             @for name in names {
                 span { (name) }
             }
@@ -695,13 +788,17 @@ mod tests {
                         vec![Dynamic::String("Jim".to_string())],
                     ])),
                     templates: vec![],
+                    anonymous_events: vec![],
+                    phantom: PhantomData,
                 })])),
                 templates: vec![],
+                anonymous_events: vec![],
+                phantom: PhantomData,
             }
         );
 
         let names = ["John", "Joe", "Jim"];
-        let rendered = html! {
+        let rendered: Rendered<()> = html! {
             @for name in names {
                 span class=(name) { (name) }
             }
@@ -732,8 +829,12 @@ mod tests {
                         ],
                     ])),
                     templates: vec![],
+                    anonymous_events: vec![],
+                    phantom: PhantomData,
                 })])),
                 templates: vec![],
+                anonymous_events: vec![],
+                phantom: PhantomData,
             }
         );
     }
@@ -741,7 +842,7 @@ mod tests {
     #[lunatic::test]
     fn for_loop_multiple() {
         #[allow(clippy::reversed_empty_ranges)]
-        let rendered = html! {
+        let rendered: Rendered<()> = html! {
             span { "Hello" }
             @for _ in 0..2 {
                 span { "A" }
@@ -766,11 +867,15 @@ mod tests {
                     Dynamic::Nested(Rendered {
                         statics: vec!["<span>A</span>".to_string()],
                         dynamics: Dynamics::List(DynamicList(vec![vec![], vec![]])),
-                        templates: vec![]
+                        templates: vec![],
+                        anonymous_events: vec![],
+                        phantom: PhantomData,
                     }),
                     Dynamic::String("".to_string()),
                 ])),
                 templates: vec![],
+                anonymous_events: vec![],
+                phantom: PhantomData,
             }
         );
     }
@@ -778,7 +883,7 @@ mod tests {
     #[lunatic::test]
     fn for_loop_with_if() {
         let names = ["John", "Joe", "Jim"];
-        let rendered = html! {
+        let rendered: Rendered<()> = html! {
             @for name in names {
                 span { "Welcome, " (name) "." }
                 @if name == "Jim" {
@@ -818,8 +923,12 @@ mod tests {
                         "<span>You are a VIP, ".to_string(),
                         "</span>".to_string()
                     ]],
+                    anonymous_events: vec![],
+                    phantom: PhantomData,
                 })])),
-                templates: vec![]
+                templates: vec![],
+                anonymous_events: vec![],
+                phantom: PhantomData,
             }
         );
     }
@@ -827,7 +936,7 @@ mod tests {
     #[lunatic::test]
     fn for_loop_with_multiple_ifs() {
         let names = ["John", "Joe", "Jim"];
-        let rendered = html! {
+        let rendered: Rendered<()> = html! {
             @for name in names {
                 span { "Welcome, " (name) "." }
                 @if name == "Jim" {
@@ -880,8 +989,12 @@ mod tests {
                             "".to_string()
                         ],
                     ],
+                    anonymous_events: vec![],
+                    phantom: PhantomData,
                 })])),
                 templates: vec![],
+                anonymous_events: vec![],
+                phantom: PhantomData,
             }
         );
     }
@@ -889,7 +1002,7 @@ mod tests {
     #[lunatic::test]
     fn for_loop_with_many_ifs() {
         let names = ["John", "Joe", "Jim"];
-        let rendered = html! {
+        let rendered: Rendered<()> = html! {
             @for name in names {
                 span { "Welcome, " (name) "." }
                 @if name == "Jim" || name == "Joe" {
@@ -951,8 +1064,12 @@ mod tests {
                             "".to_string()
                         ],
                     ],
+                    anonymous_events: vec![],
+                    phantom: PhantomData,
                 })])),
-                templates: vec![]
+                templates: vec![],
+                anonymous_events: vec![],
+                phantom: PhantomData,
             }
         );
     }

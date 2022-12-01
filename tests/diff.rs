@@ -11,7 +11,7 @@ fn dynamic_diff() {
         }
     };
 
-    let diff = render("hey").diff(render("there"));
+    let diff = render("hey").diff::<()>(render("there"));
     assert_eq!(
         diff,
         Some(json!({
@@ -32,7 +32,7 @@ fn if_statement_false_to_true_diff() {
         }
     };
 
-    let diff = render(false).diff(render(true));
+    let diff = render(false).diff::<()>(render(true));
     assert_eq!(
         diff,
         Some(json!({
@@ -54,7 +54,7 @@ fn if_statement_false_to_true_diff() {
         }
     };
 
-    let diff = render(false).diff(render(true));
+    let diff = render(false).diff::<()>(render(true));
     assert_eq!(
         diff,
         Some(json!({
@@ -81,7 +81,7 @@ fn if_statement_true_to_false_diff() {
         }
     };
 
-    let diff = render(true).diff(render(false));
+    let diff = render(true).diff::<()>(render(false));
     assert_eq!(
         diff,
         Some(json!({
@@ -99,7 +99,7 @@ fn if_statement_true_to_false_diff() {
         }
     };
 
-    let diff = render(true).diff(render(false));
+    let diff = render(true).diff::<()>(render(false));
     assert_eq!(
         diff,
         Some(json!({
@@ -121,7 +121,7 @@ fn if_statement_let_none_to_some_diff() {
         }
     };
 
-    let diff = render(None).diff(render(Some("Bob")));
+    let diff = render(None).diff::<()>(render(Some("Bob")));
     assert_eq!(
         diff,
         Some(json!({
@@ -149,7 +149,7 @@ fn if_statement_let_some_to_none_diff() {
         }
     };
 
-    let diff = render(Some("Bob")).diff(render(None));
+    let diff = render(Some("Bob")).diff::<()>(render(None));
     assert_eq!(
         diff,
         Some(json!({
@@ -175,7 +175,7 @@ fn if_statement_nested_diff() {
         }
     };
 
-    let diff = render(0).diff(render(1));
+    let diff = render(0).diff::<()>(render(1));
     assert_eq!(
         diff,
         Some(json!({
@@ -189,7 +189,7 @@ fn if_statement_nested_diff() {
         }))
     );
 
-    let diff = render(1).diff(render(2));
+    let diff = render(1).diff::<()>(render(2));
     assert_eq!(
         diff,
         Some(json!({
@@ -203,7 +203,7 @@ fn if_statement_nested_diff() {
         }))
     );
 
-    let diff = render(2).diff(render(3));
+    let diff = render(2).diff::<()>(render(3));
     assert_eq!(diff, None);
 }
 
@@ -217,7 +217,7 @@ fn for_loop_statics() {
         }
     };
 
-    let diff = render(&[]).diff(render(&["John"]));
+    let diff = render(&[]).diff::<()>(render(&["John"]));
     assert_eq!(
         diff,
         Some(json!({
@@ -232,7 +232,7 @@ fn for_loop_statics() {
         }))
     );
 
-    let diff = render(&["John"]).diff(render(&["John", "Jim"]));
+    let diff = render(&["John"]).diff::<()>(render(&["John", "Jim"]));
     assert_eq!(
         diff,
         Some(json!({
@@ -245,7 +245,7 @@ fn for_loop_statics() {
         }))
     );
 
-    let diff = render(&["John", "Jim"]).diff(render(&["John"]));
+    let diff = render(&["John", "Jim"]).diff::<()>(render(&["John"]));
     assert_eq!(
         diff,
         Some(json!({
@@ -257,7 +257,7 @@ fn for_loop_statics() {
         }))
     );
 
-    let diff = render(&["John"]).diff(render(&[]));
+    let diff = render(&["John"]).diff::<()>(render(&[]));
     assert_eq!(
         diff,
         Some(json!({
@@ -278,7 +278,7 @@ fn for_loop_dynamics() {
         }
     };
 
-    let diff = render(&[]).diff(render(&["John"]));
+    let diff = render(&[]).diff::<()>(render(&["John"]));
     assert_eq!(
         diff,
         Some(json!({
@@ -296,7 +296,7 @@ fn for_loop_dynamics() {
         }))
     );
 
-    let diff = render(&["John"]).diff(render(&["John", "Joe"]));
+    let diff = render(&["John"]).diff::<()>(render(&["John", "Joe"]));
     assert_eq!(
         diff,
         Some(json!({
@@ -313,7 +313,7 @@ fn for_loop_dynamics() {
         }))
     );
 
-    let diff = render(&["John", "Joe"]).diff(render(&["John", "Joe", "Jim"]));
+    let diff = render(&["John", "Joe"]).diff::<()>(render(&["John", "Joe", "Jim"]));
     assert_eq!(
         diff,
         Some(json!({
@@ -333,7 +333,7 @@ fn for_loop_dynamics() {
         }))
     );
 
-    let diff = render(&["John", "Joe"]).diff(render(&["John"]));
+    let diff = render(&["John", "Joe"]).diff::<()>(render(&["John"]));
     assert_eq!(
         diff,
         Some(json!({
@@ -347,7 +347,7 @@ fn for_loop_dynamics() {
         }))
     );
 
-    let diff = render(&["John"]).diff(render(&[]));
+    let diff = render(&["John"]).diff::<()>(render(&[]));
     assert_eq!(
         diff,
         Some(json!({
