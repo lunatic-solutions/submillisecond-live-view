@@ -4,7 +4,7 @@ use submillisecond_live_view::prelude::*;
 
 fn main() -> std::io::Result<()> {
     Application::new(router! {
-        GET "/" => List::handler()
+        GET "/" => List::handler("list.html", "#app")
         "/static" => static_router!("./static")
     })
     .serve("127.0.0.1:3000")
