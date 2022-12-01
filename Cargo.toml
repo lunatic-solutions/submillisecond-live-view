@@ -1,6 +1,6 @@
 [package]
 name = "submillisecond-live-view"
-version = "0.3.1"
+version = "0.3.2"
 edition = "2021"
 license = "MIT/Apache-2.0"
 description = "A LiveView implementation for the submillisecond web framework."
@@ -15,7 +15,7 @@ itertools = "0.10"
 jwt = "0.16.0"
 lunatic = { version = "0.12", features = ["json_serializer"] }
 lunatic-log = "0.3"
-maud-live-view = "0.24.2"
+maud-live-view = "0.24.3"
 nipper = "0.1"
 pretty_assertions = "1.3"
 rand = "0.8"
