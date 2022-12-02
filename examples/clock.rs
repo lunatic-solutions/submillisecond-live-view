@@ -8,7 +8,7 @@ use submillisecond_live_view::prelude::*;
 
 fn main() -> std::io::Result<()> {
     Application::new(router! {
-        GET "/" => Clock::handler()
+        GET "/" => Clock::handler("examples/clock.html", "#app")
         "/static" => static_router!("./static")
     })
     .serve("127.0.0.1:3000")
@@ -90,12 +90,6 @@ impl LiveView for Clock {
                 span { (format!("{}ms", self.tick_frequency)) }
             }
         }
-    }
-
-    fn head() -> Head {
-        Head::defaults()
-            .with_title("LiveView Clock")
-            .with_style(Style::Link("/static/clock.css"))
     }
 }
 

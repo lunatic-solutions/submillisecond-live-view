@@ -4,7 +4,7 @@ use submillisecond_live_view::prelude::*;
 
 fn main() -> std::io::Result<()> {
     Application::new(router! {
-        GET "/" => Counter::handler()
+        GET "/" => Counter::handler("examples/counter.html", "#app")
         "/static" => static_router!("./static")
     })
     .serve("127.0.0.1:3000")
@@ -31,12 +31,6 @@ impl LiveView for Counter {
                 p { "Count is high!" }
             }
         }
-    }
-
-    fn head() -> Head {
-        Head::defaults()
-            .with_title("LiveView Counter")
-            .with_style(Style::Link("/static/counter.css"))
     }
 }
 

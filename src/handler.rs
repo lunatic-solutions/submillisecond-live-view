@@ -16,20 +16,32 @@ use crate::event_handler::EventHandler;
 use crate::manager::LiveViewManager;
 use crate::maud::LiveViewMaud;
 use crate::socket::{Message, ProtocolEvent, RawSocket, SocketError, SocketMessage};
+use crate::template::TemplateProcess;
 use crate::LiveView;
 
 type Manager<T> = LiveViewMaud<T>;
 
 /// A LiveView handler created with `LiveViewRouter::handler`.
-pub struct LiveViewHandler<L, T> {
-    live_view: L,
+pub struct LiveViewHandler<'a, T> {
+    template: &'a str,
+    selector: &'a str,
     phantom: PhantomData<T>,
 }
 
 /// Trait used to create a handler from a LiveView.
 pub trait LiveViewRouter: Sized {
-    /// Create handler for LiveView.
-    fn handler() -> LiveViewHandler<Manager<Self>, Self>;
+    /// Create handler for LiveView with a html template.
+    ///
+    /// The LiveView is injected into the selector of the template.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// router! {
+    ///     GET "/" => MyLiveView::handler("index.html", "#app")
+    /// }
+    /// ```
+    fn handler<'a>(template: &'a str, selector: &'a str) -> LiveViewHandler<'a, Self>;
 }
 
 trait LogError {
@@ -41,28 +53,34 @@ impl<T> LiveViewRouter for T
 where
     T: LiveView,
 {
-    fn handler() -> LiveViewHandler<Manager<Self>, Self> {
-        LiveViewHandler::new(Manager::default())
+    fn handler<'a>(template: &'a str, selector: &'a str) -> LiveViewHandler<'a, Self> {
+        LiveViewHandler::new(template, selector)
     }
 }
 
-impl<L, T> LiveViewHandler<L, T> {
-    pub(crate) fn new(live_view: L) -> Self {
+impl<'a, T> LiveViewHandler<'a, T> {
+    pub(crate) fn new(template: &'a str, selector: &'a str) -> Self {
         LiveViewHandler {
-            live_view,
+            template,
+            selector,
             phantom: PhantomData,
         }
     }
 }
 
-impl<L, T> Handler for LiveViewHandler<L, T>
+impl<'a, T> Handler for LiveViewHandler<'a, T>
 where
-    L: Clone + LiveViewManager<T> + Serialize + for<'de> Deserialize<'de>,
-    // L::Reply: Serialize + for<'de> Deserialize<'de>,
-    L::Error: Serialize + for<'de> Deserialize<'de>,
     T: LiveView,
 {
+    fn init(&self) {
+        TemplateProcess::start(self.template, self.selector).expect("failed to load index.html");
+    }
+
     fn handle(&self, req: RequestContext) -> Response {
+        let process = TemplateProcess::lookup(self.template, self.selector)
+            .expect("TemplateProcess should be started");
+        let live_view: LiveViewMaud<T> = Manager::new(process);
+
         let is_websocket = req
             .headers()
             .get(header::UPGRADE)
@@ -75,7 +93,7 @@ where
                 Err(err) => return err.into_response(),
             };
 
-            ws.on_upgrade(self.live_view.clone(), |conn, live_view| {
+            ws.on_upgrade(live_view, |conn, live_view| {
                 let (mut socket, mut message) = match wait_for_join(conn) {
                     Ok((socket, message)) => (socket, message),
                     Err(err) => {
@@ -99,7 +117,7 @@ where
                 loop {
                     match RawSocket::receive_from_conn(&mut conn) {
                         Ok(SocketMessage::Event(message)) => {
-                            if !handle_message::<L, T>(&mut socket, message, &event_handler) {
+                            if !handle_message::<Manager<T>, T>(&mut socket, message, &event_handler) {
                                 break;
                             }
                         }
@@ -128,7 +146,7 @@ where
             })
             .into_response()
         } else {
-            self.live_view.handle_request(req)
+            live_view.handle_request(req)
         }
     }
 }

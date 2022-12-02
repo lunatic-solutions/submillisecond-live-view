@@ -22,6 +22,20 @@
 //! serde = { version = "*", features = ["derive"] }
 //! ```
 //!
+//! We'll also need an index.html file next to our Cargo.toml file to act as a
+//! template for our LiveView. The LiveView will be injected in the #app div.
+//!
+//! ```html
+//! <html>
+//!   <head>
+//!     <title>My LiveView App</title>
+//!   </head>
+//!   <body>
+//!     <div id="app"></div>
+//!   </body>
+//! </html>
+//! ```
+//!
 //! Next, implement [`LiveView`] on a new type, and define the
 //! [`LiveView::Events`] tuple, [`LiveView::mount`] and [`LiveView::render`]
 //! methods.
@@ -77,7 +91,7 @@
 //!
 //! fn main() -> std::io::Result<()> {
 //!     Application::new(router! {
-//!         GET "/" => Counter::handler()
+//!         GET "/" => Counter::handler("index.html", "#app")
 //!     })
 //!     .serve("127.0.0.1:3000")
 //! }
@@ -161,7 +175,6 @@
 #![warn(missing_docs)]
 
 pub mod handler;
-pub mod head;
 pub mod rendered;
 pub mod socket;
 
@@ -170,6 +183,7 @@ mod event_handler;
 mod live_view;
 mod manager;
 mod maud;
+mod template;
 
 #[doc(hidden)]
 pub use maud_live_view;
@@ -182,7 +196,6 @@ pub mod prelude {
     pub use submillisecond::http::Uri;
 
     pub use crate::handler::LiveViewRouter;
-    pub use crate::head::*;
     pub use crate::rendered::Rendered;
     pub use crate::socket::Socket;
     pub use crate::*;
