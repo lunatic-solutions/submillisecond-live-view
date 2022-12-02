@@ -31,9 +31,14 @@ impl TemplateProcess {
     #[init]
     fn init(_: ProcessRef<Self>, (html, selector): (String, String)) -> Self {
         let document = Document::from(&html.replace(0x0 as char, ""));
+        #[cfg(feature = "liveview_js")]
         document.select("head").append_html(format!(
             r#"{HTML_SEPARATOR}<script type="text/javascript">{LIVEVIEW_JS}</script>"#,
         ));
+        #[cfg(not(feature = "liveview_js"))]
+        document
+            .select("head")
+            .append_html(format!(r#"{HTML_SEPARATOR}"#,));
         let mut selection = document.select(&selector);
         if !selection.exists() {
             panic!("selector '{selector}' does not exist");
