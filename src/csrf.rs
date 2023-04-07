@@ -1,3 +1,4 @@
+use base64::{engine::general_purpose, Engine};
 use rand::{thread_rng, Rng};
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -20,7 +21,7 @@ impl CsrfToken {
 fn generate_token() -> String {
     let mut rng = thread_rng();
     let key: [u8; 18] = rng.gen();
-    base64::encode_config(key, base64::URL_SAFE)
+    general_purpose::URL_SAFE.encode(key)
 }
 
 /// Masks a token by xor'ing with another generated token.
@@ -32,7 +33,7 @@ fn mask(token: &str) -> String {
         .zip(mask.as_bytes().iter())
         .map(|(x1, x2)| x1 & x2)
         .collect();
-    let mut masked = base64::encode_config(xor, base64::URL_SAFE);
+    let mut masked = general_purpose::URL_SAFE.encode(xor);
     masked.push_str(&mask);
     masked
 }
