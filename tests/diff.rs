@@ -1,3 +1,4 @@
+use pretty_assertions::assert_eq;
 use serde_json::json;
 use submillisecond_live_view::html;
 
@@ -208,7 +209,7 @@ fn if_statement_nested_diff() {
 }
 
 #[lunatic::test]
-fn for_loop_statics() {
+fn for_loop_statics_diff() {
     let render = |names: &[&str]| {
         html! {
             @for _ in names {
@@ -269,7 +270,7 @@ fn for_loop_statics() {
 }
 
 #[lunatic::test]
-fn for_loop_dynamics() {
+fn for_loop_dynamics_diff() {
     let render = |names: &[&str]| {
         html! {
             @for name in names {
@@ -353,6 +354,105 @@ fn for_loop_dynamics() {
         Some(json!({
             "0": {
                 "d": []
+            }
+        }))
+    );
+}
+
+#[lunatic::test]
+fn for_loop_nested_diff() {
+    let render = |names: &[&[&str]]| {
+        html! {
+            @for names in names {
+                @for name in *names {
+                    span { (name) }
+                }
+            }
+        }
+    };
+
+    let diff = render(&[]).diff(render(&[&["Hello"]]));
+    assert_eq!(
+        diff,
+        Some(json!({
+            "0": {
+                "d": [
+                    [
+                        {
+                            "d": [
+                                [
+                                    "Hello"
+                                ]
+                            ],
+                            "s": 0
+                        }
+                    ]
+                ],
+                "p": {
+                    "0": [
+                        "<span>",
+                        "</span>"
+                    ]
+                },
+                "s": [
+                    "",
+                    ""
+                ]
+            }
+        }))
+    );
+
+    let render = |names: &[&[&str]]| {
+        html! {
+            @for names in names {
+                @for name in *names {
+                    span { (name) }
+                    @if name == &"World" {
+                        div { "!!!" }
+                    }
+                }
+            }
+        }
+    };
+
+    let diff = render(&[]).diff(render(&[&["Hello", "World"]]));
+    assert_eq!(
+        diff,
+        Some(json!({
+            "0": {
+                "d": [
+                    [
+                        {
+                            "d": [
+                                [
+                                    "Hello",
+                                    ""
+                                ],
+                                [
+                                    "World",
+                                    {
+                                        "s": 0
+                                    }
+                                ]
+                            ],
+                            "s": 1
+                        }
+                    ]
+                ],
+                "p": {
+                    "0": [
+                        "<div>!!!</div>"
+                    ],
+                    "1": [
+                        "<span>",
+                        "</span>",
+                        ""
+                    ]
+                },
+                "s": [
+                    "",
+                    ""
+                ]
             }
         }))
     );
