@@ -16,7 +16,7 @@ mod strip;
 use core::fmt;
 
 use serde::{Deserialize, Serialize};
-use serde_json::{Map, Value};
+use serde_json::{map::Entry, Map, Value};
 
 pub use self::builder::*;
 use self::{
@@ -37,7 +37,7 @@ pub struct Rendered {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 struct RenderedListItem {
     statics: usize,
-    dynamics: Vec<Dynamic<Self>>,
+    dynamics: Vec<Dynamics<Rendered, Self>>,
 }
 
 /// Converts a type into JSON.
@@ -91,7 +91,7 @@ impl fmt::Display for Rendered {
                 for dynamics in &list.0 {
                     for (s, d) in self.statics.iter().zip(dynamics.iter()) {
                         write!(f, "{s}")?;
-                        fmt_dynamic_list_item(&self.templates, d, f)?;
+                        fmt_dynamic_list_item(f, d, &self.templates)?;
                     }
 
                     if !dynamics.is_empty() {
@@ -107,10 +107,47 @@ impl fmt::Display for Rendered {
     }
 }
 
-fn fmt_dynamic_list_item(
-    templates: &Vec<Vec<String>>,
-    d: &Dynamic<RenderedListItem>,
+fn fmt_dynamics(
     f: &mut fmt::Formatter<'_>,
+    dynamics: &Dynamics<Rendered, RenderedListItem>,
+    statics: &[String],
+    templates: &[Vec<String>],
+) -> fmt::Result {
+    match dynamics {
+        Dynamics::Items(DynamicItems(items)) => {
+            for (s, d) in statics.iter().zip(items.iter()) {
+                write!(f, "{s}{d}")?;
+            }
+
+            if !items.is_empty() {
+                if let Some(last) = statics.last() {
+                    write!(f, "{last}")?;
+                }
+            }
+        }
+        Dynamics::List(list) => {
+            for dynamics in &list.0 {
+                for (s, d) in statics.iter().zip(dynamics.iter()) {
+                    write!(f, "{s}")?;
+                    fmt_dynamic_list_item(f, d, templates)?;
+                }
+
+                if !dynamics.is_empty() {
+                    if let Some(last) = statics.last() {
+                        write!(f, "{last}")?;
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn fmt_dynamic_list_item(
+    f: &mut fmt::Formatter<'_>,
+    d: &Dynamic<RenderedListItem>,
+    templates: &[Vec<String>],
 ) -> fmt::Result {
     match d {
         Dynamic::String(s) => {
@@ -120,7 +157,8 @@ fn fmt_dynamic_list_item(
             let statics = templates.get(n.statics).unwrap();
             for (s, d) in statics.iter().zip(n.dynamics.iter()) {
                 write!(f, "{s}")?;
-                fmt_dynamic_list_item(templates, d, f)?;
+
+                fmt_dynamics(f, d, &statics, templates)?;
             }
 
             if !n.dynamics.is_empty() {
@@ -130,6 +168,7 @@ fn fmt_dynamic_list_item(
             }
         }
     }
+
     Ok(())
 }
 
@@ -158,8 +197,24 @@ impl IntoJson for RenderedListItem {
     fn write_json(self, map: &mut Map<String, Value>) {
         map.insert("s".to_string(), self.statics.into());
 
-        for (i, dynamic) in self.dynamics.into_iter().enumerate() {
+        let (items, lists): (Vec<_>, Vec<_>) = self
+            .dynamics
+            .into_iter()
+            .map(|d| match d {
+                Dynamics::Items(items) => (Some(items), None),
+                Dynamics::List(list) => (None, Some(list)),
+            })
+            .partition(|(a, _)| a.is_some());
+
+        let items: Vec<_> = items.into_iter().filter_map(|(i, _)| i).collect();
+        let lists: Vec<_> = lists.into_iter().filter_map(|(_, l)| l).collect();
+
+        for (i, dynamic) in items.into_iter().enumerate() {
             map.insert(i.to_string(), dynamic.into_json());
+        }
+
+        for list in lists.into_iter() {
+            list.write_json(map);
         }
     }
 }
@@ -199,31 +254,25 @@ impl<N> IntoJson for DynamicList<N>
 where
     N: IntoJson,
 {
-    fn into_json(self) -> Value {
-        todo!()
-    }
-
     fn write_json(self, map: &mut Map<String, Value>) {
-        let dynamics = Value::Array(
-            self.0
-                .into_iter()
-                .map(|dynamic| {
-                    Value::Array(
-                        dynamic
-                            .into_iter()
-                            .map(|dynamic| dynamic.into_json())
-                            .collect(),
-                    )
-                })
-                .collect(),
-        );
+        if !self.0.iter().any(|list| !list.is_empty()) {
+            return;
+        }
 
-        map.insert("d".to_string(), dynamics);
+        let dynamics = self
+            .0
+            .into_iter()
+            .map(|list| Value::Array(list.into_iter().map(|d| d.into_json()).collect()));
 
-        // for dynamics in self.0 {
-        //     map.insert(k, v)
-        // }
-        // todo!()
+        match map.entry("d".to_string()) {
+            Entry::Vacant(entry) => {
+                entry.insert(dynamics.collect::<Vec<_>>().into());
+            }
+            Entry::Occupied(mut entry) => match entry.get_mut() {
+                Value::Array(array) => array.extend(dynamics),
+                _ => todo!(),
+            },
+        }
     }
 }
 

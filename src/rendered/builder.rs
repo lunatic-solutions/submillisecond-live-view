@@ -230,6 +230,7 @@ impl ItemsNode {
 impl ListNode {
     fn build(self, tree: &mut RenderedBuilder) -> Rendered {
         let mut templates = vec![];
+        println!("Pushing static to list node {s:?}");
 
         let dynamics: Vec<Vec<_>> = self
             .dynamics
@@ -344,10 +345,45 @@ impl DynamicNode {
                                     templates.len() - 1
                                 });
 
-                            Dynamic::Nested(RenderedListItem { statics, dynamics })
+                            Dynamic::Nested(RenderedListItem {
+                                statics,
+                                dynamics: vec![Dynamics::List(DynamicList(vec![dynamics]))],
+                            })
                         }
                     }
-                    NodeValue::List(_) => todo!(),
+                    NodeValue::List(list) => {
+                        let mut longest_dynamic = 0;
+                        let dynamics: Vec<_> = list
+                            .dynamics
+                            .into_iter()
+                            .map(|dynamics| {
+                                let dynamics: Vec<_> = dynamics
+                                    .into_iter()
+                                    .map(|dynamic| dynamic.build_list(tree, templates))
+                                    .collect();
+                                longest_dynamic = longest_dynamic.max(dynamics.len());
+                                Dynamics::List(DynamicList(vec![dynamics]))
+                            })
+                            .collect();
+
+                        let statics = templates
+                            .iter()
+                            .enumerate()
+                            .find_map(|(i, template)| {
+                                if vecs_match(template, &list.statics) {
+                                    Some(i)
+                                } else {
+                                    None
+                                }
+                            })
+                            .unwrap_or_else(|| {
+                                templates.push(list.statics);
+                                templates.len() - 1
+                            });
+                        insert_empty_strings(templates.last_mut().unwrap(), longest_dynamic);
+
+                        Dynamic::Nested(RenderedListItem { statics, dynamics })
+                    }
                     NodeValue::Nested(_) => todo!(),
                 }
             }
@@ -386,9 +422,7 @@ mod tests {
     use crate::maud::DOCTYPE;
     use crate::rendered::dynamic::{Dynamic, DynamicItems, DynamicList, Dynamics};
     use crate::rendered::{Rendered, RenderedListItem};
-    use crate::{
-        html, {self as submillisecond_live_view},
-    };
+    use crate::{self as submillisecond_live_view, html};
 
     #[lunatic::test]
     fn basic() {
@@ -752,8 +786,6 @@ mod tests {
             span { "world" }
         };
 
-        dbg!(&rendered);
-
         assert_eq!(
             rendered,
             Rendered {
@@ -770,6 +802,88 @@ mod tests {
                     }),
                     Dynamic::String("".to_string()),
                 ])),
+                templates: vec![],
+            }
+        );
+    }
+
+    #[lunatic::test]
+    fn for_loop_nested() {
+        let a = "Hello";
+        let b = "World";
+        let rendered = html! {
+            @for foo in [[a, b]] {
+                @for bar in foo {
+                    span { (bar) }
+                }
+            }
+        };
+
+        assert_eq!(
+            rendered,
+            Rendered {
+                statics: vec!["".to_string(), "".to_string()],
+                dynamics: Dynamics::Items(DynamicItems(vec![Dynamic::Nested(Rendered {
+                    statics: vec!["".to_string(), "".to_string()],
+                    dynamics: Dynamics::List(DynamicList(vec![vec![Dynamic::Nested(
+                        RenderedListItem {
+                            statics: 0,
+                            dynamics: vec![
+                                Dynamics::List(DynamicList(vec![vec![Dynamic::String(
+                                    "Hello".to_string()
+                                )]])),
+                                Dynamics::List(DynamicList(vec![vec![Dynamic::String(
+                                    "World".to_string()
+                                )]]))
+                            ],
+                        },
+                    )]])),
+                    templates: vec![vec!["<span>".to_string(), "</span>".to_string()]],
+                })])),
+                templates: vec![],
+            }
+        );
+
+        let rendered = html! {
+            @for foo in [[a, b]] {
+                @for bar in foo {
+                    span { (bar) }
+                    @if bar == "World" {
+                        div { "!!!" }
+                    }
+                }
+            }
+        };
+
+        assert_eq!(
+            rendered,
+            Rendered {
+                statics: vec!["".to_string(), "".to_string()],
+                dynamics: Dynamics::Items(DynamicItems(vec![Dynamic::Nested(Rendered {
+                    statics: vec!["".to_string(), "".to_string()],
+                    dynamics: Dynamics::List(DynamicList(vec![vec![Dynamic::Nested(
+                        RenderedListItem {
+                            statics: 1,
+                            dynamics: vec![
+                                Dynamics::List(DynamicList(vec![vec![
+                                    Dynamic::String("Hello".to_string()),
+                                    Dynamic::String("".to_string())
+                                ]])),
+                                Dynamics::List(DynamicList(vec![vec![
+                                    Dynamic::String("World".to_string()),
+                                    Dynamic::Nested(RenderedListItem {
+                                        statics: 0,
+                                        dynamics: vec![Dynamics::List(DynamicList(vec![vec![]]))],
+                                    })
+                                ]]))
+                            ],
+                        },
+                    )]])),
+                    templates: vec![
+                        vec!["<div>!!!</div>".to_string()],
+                        vec!["<span>".to_string(), "</span>".to_string(), "".to_string()]
+                    ],
+                })])),
                 templates: vec![],
             }
         );
@@ -810,7 +924,9 @@ mod tests {
                             Dynamic::String("Jim".to_string()),
                             Dynamic::Nested(RenderedListItem {
                                 statics: 0,
-                                dynamics: vec![Dynamic::String("jim".to_string())],
+                                dynamics: vec![Dynamics::List(DynamicList(vec![vec![
+                                    Dynamic::String("jim".to_string())
+                                ]]))],
                             })
                         ],
                     ])),
@@ -862,13 +978,15 @@ mod tests {
                             Dynamic::String("Jim".to_string()),
                             Dynamic::Nested(RenderedListItem {
                                 statics: 1,
-                                dynamics: vec![
+                                dynamics: vec![Dynamics::List(DynamicList(vec![vec![
                                     Dynamic::String("jim".to_string()),
                                     Dynamic::Nested(RenderedListItem {
                                         statics: 0,
-                                        dynamics: vec![Dynamic::String("Jim".to_string())],
-                                    }),
-                                ],
+                                        dynamics: vec![Dynamics::List(DynamicList(vec![vec![
+                                            Dynamic::String("Jim".to_string())
+                                        ]]))],
+                                    })
+                                ]])),],
                             })
                         ],
                     ])),
@@ -920,26 +1038,30 @@ mod tests {
                             Dynamic::String("Joe".to_string()),
                             Dynamic::Nested(RenderedListItem {
                                 statics: 1,
-                                dynamics: vec![
+                                dynamics: vec![Dynamics::List(DynamicList(vec![vec![
                                     Dynamic::String("joe".to_string()),
                                     Dynamic::Nested(RenderedListItem {
                                         statics: 0,
-                                        dynamics: vec![Dynamic::String("Joe".to_string())],
-                                    }),
-                                ],
+                                        dynamics: vec![Dynamics::List(DynamicList(vec![vec![
+                                            Dynamic::String("Joe".to_string())
+                                        ]]))],
+                                    })
+                                ]]))],
                             }),
                         ],
                         vec![
                             Dynamic::String("Jim".to_string()),
                             Dynamic::Nested(RenderedListItem {
                                 statics: 1,
-                                dynamics: vec![
+                                dynamics: vec![Dynamics::List(DynamicList(vec![vec![
                                     Dynamic::String("jim".to_string()),
                                     Dynamic::Nested(RenderedListItem {
                                         statics: 0,
-                                        dynamics: vec![Dynamic::String("Jim".to_string())],
-                                    }),
-                                ],
+                                        dynamics: vec![Dynamics::List(DynamicList(vec![vec![
+                                            Dynamic::String("Jim".to_string())
+                                        ]]))],
+                                    })
+                                ]]))],
                             }),
                         ],
                     ])),
