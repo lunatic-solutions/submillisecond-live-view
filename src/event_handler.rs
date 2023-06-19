@@ -58,7 +58,7 @@ impl EventHandler {
     pub(crate) fn handle_join(&self, join_event: JoinEvent) -> Result<Value, EventHandlerError> {
         let tag = Tag::new();
         self.event_handler.send(EventHandlerMessage::HandleJoin(
-            Process::this(),
+            unsafe { Process::this() },
             tag,
             join_event,
         ));
@@ -69,7 +69,7 @@ impl EventHandler {
     pub(crate) fn handle_event(&self, event: Event) -> Result<Option<Value>, EventHandlerError> {
         let tag = Tag::new();
         self.event_handler.send(EventHandlerMessage::HandleEvent(
-            Process::this(),
+            unsafe { Process::this() },
             tag,
             event,
         ));
@@ -86,7 +86,7 @@ fn event_handler<L, T>(
     L: LiveViewManager<T>,
     T: LiveView,
 {
-    let this: Process<EventHandlerMessage, Json> = Process::this();
+    let this: Process<EventHandlerMessage, Json> = mailbox.this();
     let mut state = None;
 
     loop {

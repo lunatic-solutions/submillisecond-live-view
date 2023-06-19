@@ -5,7 +5,7 @@ use std::marker::PhantomData;
 pub use ::maud_live_view::*;
 use hmac::{Hmac, Mac};
 use jwt::VerifyWithKey;
-use lunatic::process::ProcessRef;
+use lunatic::ap::ProcessRef;
 use lunatic_log::error;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -18,7 +18,7 @@ use thiserror::Error;
 use crate::manager::{Join, LiveViewManager, LiveViewManagerResult};
 use crate::rendered::{IntoJson, Rendered};
 use crate::socket::{Event, JoinEvent, Socket};
-use crate::template::{TemplateProcess, TemplateProcessHandler};
+use crate::template::{TemplateProcess, TemplateProcessRequests};
 use crate::LiveView;
 
 #[derive(Serialize, Deserialize)]
