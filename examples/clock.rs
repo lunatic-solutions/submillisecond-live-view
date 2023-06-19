@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use chrono::Utc;
-use lunatic::{Mailbox, MailboxResult, Process};
+use lunatic::{Mailbox, MailboxError, Process};
 use serde::{Deserialize, Serialize};
 use submillisecond::{router, static_router, Application};
 use submillisecond_live_view::prelude::*;
@@ -32,10 +32,10 @@ impl LiveView for Clock {
                 let mut update_frequency = 500;
                 loop {
                     match mailbox.receive_timeout(Duration::from_millis(update_frequency)) {
-                        MailboxResult::Message(ms) => {
+                        Ok(ms) => {
                             update_frequency = ms;
                         }
-                        MailboxResult::TimedOut => {
+                        Err(MailboxError::TimedOut) => {
                             socket.send_event(Tick {}).unwrap();
                         }
                         err => panic!("{err:?}"),

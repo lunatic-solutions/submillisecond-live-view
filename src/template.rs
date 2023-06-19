@@ -3,7 +3,7 @@ use std::{fs, io};
 use hmac::{Hmac, Mac};
 use jwt::SignWithKey;
 use lunatic::abstract_process;
-use lunatic::process::{ProcessRef, StartProcess};
+use lunatic::ap::{AbstractProcess, Config, ProcessRef};
 use nipper::Document;
 use rand::distributions::Alphanumeric;
 use rand::Rng;
@@ -26,10 +26,10 @@ pub struct TemplateProcess {
     html_parts: [String; 3],
 }
 
-#[abstract_process(visibility = pub(crate))]
+#[abstract_process(visibility = pub)]
 impl TemplateProcess {
     #[init]
-    fn init(_: ProcessRef<Self>, (html, selector): (String, String)) -> Self {
+    fn init(_: Config<Self>, (html, selector): (String, String)) -> Result<Self, ()> {
         let document = Document::from(&html.replace(0x0 as char, ""));
         #[cfg(feature = "liveview_js")]
         document.select("head").append_html(format!(
@@ -52,7 +52,7 @@ impl TemplateProcess {
             .collect::<Vec<_>>()
             .try_into()
             .unwrap();
-        TemplateProcess { html_parts }
+        Ok(TemplateProcess { html_parts })
     }
 
     #[handle_request]
@@ -87,7 +87,8 @@ impl TemplateProcess {
     pub fn start(path: &str, selector: &str) -> io::Result<ProcessRef<Self>> {
         let name = Self::process_name(path, selector);
         let template = fs::read_to_string(path)?;
-        let process = Self::start_link((template, selector.to_string()), Some(&name));
+        let process = Self::start_as(&name, (template, selector.to_string())).unwrap();
+        process.link();
         Ok(process)
     }
 

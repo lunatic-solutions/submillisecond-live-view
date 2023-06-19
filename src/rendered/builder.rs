@@ -230,7 +230,6 @@ impl ItemsNode {
 impl ListNode {
     fn build(self, tree: &mut RenderedBuilder) -> Rendered {
         let mut templates = vec![];
-        println!("Pushing static to list node {s:?}");
 
         let dynamics: Vec<Vec<_>> = self
             .dynamics
